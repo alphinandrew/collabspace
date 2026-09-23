@@ -22,12 +22,14 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const isSendingRef = useRef(false);
 
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!text.trim() || sending) return;
-
     const content = text.trim();
+    if (!content || sending || isSendingRef.current) return;
+
+    isSendingRef.current = true;
     setText('');
     setSending(true);
     try {
@@ -37,6 +39,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       setText(content);
     } finally {
       setSending(false);
+      isSendingRef.current = false;
     }
   };
 

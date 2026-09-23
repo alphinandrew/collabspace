@@ -76,9 +76,26 @@ export const ChatView: React.FC<ChatViewProps> = ({
     const handleIncomingMessage = (newMsg: Message) => {
       if (newMsg.group_id === group.id) {
         setMessages((prev) => {
-          // Avoid duplicate messages
-          const exists = prev.some((m) => m.id === newMsg.id);
-          if (exists) return prev;
+          // 1. Avoid duplicate messages if this exact ID already exists
+          if (prev.some((m) => m.id === newMsg.id)) {
+            return prev;
+          }
+
+          // 2. If this is from the current user, check if we have a matching optimistic message waiting
+          const tempIdx = prev.findIndex(
+            (m) =>
+              m.id.startsWith('temp_') &&
+              m.sender_id === newMsg.sender_id &&
+              m.content.trim() === newMsg.content.trim()
+          );
+
+          if (tempIdx !== -1) {
+            // Replace the optimistic temp message with the confirmed real message
+            const next = [...prev];
+            next[tempIdx] = { ...newMsg, status: 'sent' };
+            return next;
+          }
+
           return [...prev, newMsg];
         });
       }
@@ -127,9 +144,15 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
     try {
       const res = await api.sendMessage(group.id, content);
-      setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? { ...res.message, status: 'sent' } : m))
-      );
+      setMessages((prev) => {
+        // If the socket already inserted or replaced the real message:
+        const alreadyHasReal = prev.some((m) => m.id === res.message.id);
+        if (alreadyHasReal) {
+          // Remove the temp message if still present so it doesn't duplicate
+          return prev.filter((m) => m.id !== tempId);
+        }
+        return prev.map((m) => (m.id === tempId ? { ...res.message, status: 'sent' } : m));
+      });
     } catch (err) {
       setMessages((prev) =>
         prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m))
@@ -148,6 +171,16 @@ export const ChatView: React.FC<ChatViewProps> = ({
       console.error('Retry failed:', err);
     }
   };
+
+  // Deduplicate messages by ID to guarantee uniqueness in rendering
+  const uniqueMessages = React.useMemo(() => {
+    const seen = new Set<string>();
+    return messages.filter((m) => {
+      if (seen.has(m.id)) return false;
+      seen.add(m.id);
+      return true;
+    });
+  }, [messages]);
 
   // Compute online members count
   const onlineCount = members.filter((m) => m.status === 'online').length;
@@ -324,7 +357,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
               Retry
             </button>
           </div>
-        ) : messages.length === 0 ? (
+        ) : uniqueMessages.length === 0 ? (
           <div
             style={{
               display: 'flex',
@@ -360,7 +393,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
             </div>
           </div>
         ) : (
-          messages.map((msg) => (
+          uniqueMessages.map((msg) => (
             <MessageItem
               key={msg.id}
               message={msg}
