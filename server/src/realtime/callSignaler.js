@@ -133,17 +133,19 @@ function setupCallSignaler(io, socket) {
     });
   });
 
-  // 6. Media State Toggle (Mute mic or camera)
-  socket.on('call:toggle-media', ({ groupId, isMuted, isCameraOff }) => {
+  // 6. Media State Toggle (Mute mic, camera, or screen share)
+  socket.on('call:toggle-media', ({ groupId, isMuted, isCameraOff, isScreenSharing }) => {
     const callState = activeCalls.get(groupId);
     if (callState && callState.participants.has(socket.id)) {
       const p = callState.participants.get(socket.id);
-      p.isMuted = isMuted;
-      p.isCameraOff = isCameraOff;
+      if (typeof isMuted === 'boolean') p.isMuted = isMuted;
+      if (typeof isCameraOff === 'boolean') p.isCameraOff = isCameraOff;
+      if (typeof isScreenSharing === 'boolean') p.isScreenSharing = isScreenSharing;
       socket.to(`group_${groupId}`).emit('call:peer-media-toggled', {
         socketId: socket.id,
-        isMuted,
-        isCameraOff,
+        isMuted: p.isMuted,
+        isCameraOff: p.isCameraOff,
+        isScreenSharing: p.isScreenSharing,
       });
     }
   });

@@ -12,6 +12,7 @@ export interface RemoteParticipant {
   stream?: MediaStream;
   isMuted: boolean;
   isCameraOff: boolean;
+  isScreenSharing?: boolean;
 }
 
 export interface IncomingCallData {
@@ -65,6 +66,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // PeerConnections: socketId -> RTCPeerConnection
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
   const iceServersRef = useRef<RTCIceServer[]>([{ urls: 'stun:stun.l.google.com:19302' }]);
+  const cameraTrackRef = useRef<MediaStreamTrack | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
 
   // Load configured WebRTC ICE servers from server
   useEffect(() => {
@@ -239,6 +242,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socket.emit('call:leave', { groupId: activeGroupId });
     }
 
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((track) => track.stop());
+      screenStreamRef.current = null;
+    }
+    cameraTrackRef.current = null;
+
     // Stop all local tracks
     if (localStream) {
       localStream.getTracks().forEach((track) => track.stop());
@@ -269,6 +278,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
             groupId: activeGroupId,
             isMuted: newMuted,
             isCameraOff,
+            isScreenSharing,
           });
         }
       }
@@ -288,49 +298,145 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
             groupId: activeGroupId,
             isMuted,
             isCameraOff: newCameraOff,
+            isScreenSharing,
           });
         }
       }
     }
   };
 
+  // Stop Screen Share helper
+  const stopScreenShare = useCallback(async () => {
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((t) => t.stop());
+      screenStreamRef.current = null;
+    }
+
+    // Restore camera video track
+    let cameraTrack = cameraTrackRef.current;
+    if (!cameraTrack || cameraTrack.readyState === 'ended') {
+      try {
+        const userMedia = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        });
+        cameraTrack = userMedia.getVideoTracks()[0] || null;
+      } catch (err) {
+        console.warn('Could not re-acquire camera after screen sharing:', err);
+        cameraTrack = null;
+      }
+    }
+    cameraTrackRef.current = cameraTrack;
+
+    // Restore local media stream
+    const audioTracks = localStream ? localStream.getAudioTracks() : [];
+    const restoredTracks = cameraTrack ? [cameraTrack, ...audioTracks] : audioTracks;
+    const restoredStream = new MediaStream(restoredTracks);
+    setLocalStream(restoredStream);
+
+    // Replace track back to camera on all peer connections
+    peerConnections.current.forEach(async (pc) => {
+      const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
+      if (sender) {
+        await sender.replaceTrack(cameraTrack);
+      }
+    });
+
+    setIsScreenSharing(false);
+    setIsCameraOff(!cameraTrack);
+
+    if (socket && activeGroupId) {
+      socket.emit('call:toggle-media', {
+        groupId: activeGroupId,
+        isMuted,
+        isCameraOff: !cameraTrack,
+        isScreenSharing: false,
+      });
+    }
+  }, [socket, activeGroupId, isMuted, localStream]);
+
   // Toggle Screen Share
   const toggleScreenShare = async () => {
-    if (!localStream) return;
+    if (isScreenSharing) {
+      await stopScreenShare();
+      return;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+      setErrorMessage('Screen sharing is not supported by your browser in this environment.');
+      return;
+    }
+
     try {
-      if (!isScreenSharing) {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        const screenTrack = screenStream.getVideoTracks()[0];
+      // 1. Save current camera video track before switching
+      const currentCameraTrack = localStream?.getVideoTracks()[0] || null;
+      cameraTrackRef.current = currentCameraTrack;
 
-        // Replace video track in all peer connections
-        peerConnections.current.forEach((pc) => {
-          const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
-          if (sender) {
-            sender.replaceTrack(screenTrack);
-          }
-        });
+      // 2. Request screen capture from browser
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          cursor: 'always',
+        } as any,
+        audio: false,
+      });
 
-        screenTrack.onended = () => {
-          toggleScreenShare(); // restore camera track when user stops sharing via browser UI
-        };
-
-        setIsScreenSharing(true);
-      } else {
-        // Revert back to camera track
-        const userMedia = await navigator.mediaDevices.getUserMedia({ video: true });
-        const cameraTrack = userMedia.getVideoTracks()[0];
-
-        peerConnections.current.forEach((pc) => {
-          const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
-          if (sender) {
-            sender.replaceTrack(cameraTrack);
-          }
-        });
-
-        setIsScreenSharing(false);
+      const screenTrack = screenStream.getVideoTracks()[0];
+      if (!screenTrack) {
+        throw new Error('No video track available in screen capture.');
       }
-    } catch (err) {
-      console.warn('Screen share cancelled or failed:', err);
+      screenStreamRef.current = screenStream;
+
+      // 3. Assemble and set combined local stream (screen video + existing microphone audio)
+      const audioTracks = localStream ? localStream.getAudioTracks() : [];
+      const combinedStream = new MediaStream([screenTrack, ...audioTracks]);
+      setLocalStream(combinedStream);
+
+      // 4. Update all peer connections with the screen video track
+      for (const [targetSocketId, pc] of peerConnections.current.entries()) {
+        const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
+        if (sender) {
+          try {
+            await sender.replaceTrack(screenTrack);
+          } catch (e) {
+            console.warn('replaceTrack failed, renegotiating offer:', e);
+            pc.addTrack(screenTrack, combinedStream);
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socket?.emit('call:offer', { targetSocketId, offer });
+          }
+        } else {
+          // If no video sender existed (e.g. started as voice call)
+          pc.addTrack(screenTrack, combinedStream);
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          socket?.emit('call:offer', { targetSocketId, offer });
+        }
+      }
+
+      // 5. Handle native browser "Stop sharing" bar/button
+      screenTrack.onended = () => {
+        stopScreenShare();
+      };
+
+      // 6. Update local state and broadcast screen sharing active to peers
+      setIsScreenSharing(true);
+      setIsCameraOff(false);
+
+      if (socket && activeGroupId) {
+        socket.emit('call:toggle-media', {
+          groupId: activeGroupId,
+          isMuted,
+          isCameraOff: false,
+          isScreenSharing: true,
+        });
+      }
+    } catch (err: any) {
+      if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
+        // User clicked "Cancel" on browser screen selection picker
+        console.log('Screen sharing cancelled by user.');
+        return;
+      }
+      console.error('Screen sharing error:', err);
+      setErrorMessage(err.message || 'Failed to start screen sharing.');
     }
   };
 
@@ -365,7 +471,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket.on('call:offer', async ({ callerSocketId, callerUser, offer }: any) => {
       if (!localStream) return;
 
-      const pc = createPeerConnection(callerSocketId, localStream);
+      const pc = peerConnections.current.get(callerSocketId) || createPeerConnection(callerSocketId, localStream);
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
@@ -409,12 +515,17 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // Peer media toggle
-    socket.on('call:peer-media-toggled', ({ socketId, isMuted: pMuted, isCameraOff: pCamOff }: any) => {
+    socket.on('call:peer-media-toggled', ({ socketId, isMuted: pMuted, isCameraOff: pCamOff, isScreenSharing: pScreenShare }: any) => {
       setRemoteParticipants((prev) => {
         const next = new Map(prev);
         const p = next.get(socketId);
         if (p) {
-          next.set(socketId, { ...p, isMuted: pMuted, isCameraOff: pCamOff });
+          next.set(socketId, {
+            ...p,
+            isMuted: pMuted !== undefined ? pMuted : p.isMuted,
+            isCameraOff: pCamOff !== undefined ? pCamOff : p.isCameraOff,
+            isScreenSharing: pScreenShare !== undefined ? pScreenShare : p.isScreenSharing,
+          });
         }
         return next;
       });

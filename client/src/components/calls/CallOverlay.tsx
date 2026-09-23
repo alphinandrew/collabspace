@@ -11,6 +11,7 @@ interface ParticipantTileProps {
   avatar?: string | null;
   isMuted: boolean;
   isCameraOff: boolean;
+  isScreenSharing?: boolean;
   isLocal?: boolean;
 }
 
@@ -20,6 +21,7 @@ const ParticipantTile: React.FC<ParticipantTileProps> = ({
   avatar,
   isMuted,
   isCameraOff,
+  isScreenSharing = false,
   isLocal = false,
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -30,24 +32,26 @@ const ParticipantTile: React.FC<ParticipantTileProps> = ({
     }
   }, [stream]);
 
+  const showVideo = stream && (!isCameraOff || isScreenSharing);
+
   return (
     <div
       style={{
         position: 'relative',
         width: '100%',
         height: '100%',
-        backgroundColor: '#0F172A',
+        backgroundColor: '#0A0F1D',
         borderRadius: 'var(--radius-lg)',
-        border: '1px solid var(--border-subtle)',
+        border: isScreenSharing ? '2px solid var(--brand-primary)' : '1px solid var(--border-subtle)',
         overflow: 'hidden',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: 'var(--shadow-md)',
+        boxShadow: isScreenSharing ? '0 0 20px rgba(99, 102, 241, 0.25)' : 'var(--shadow-md)',
       }}
     >
       {/* Video Element */}
-      {stream && !isCameraOff ? (
+      {showVideo ? (
         <video
           ref={videoRef}
           autoPlay
@@ -56,8 +60,9 @@ const ParticipantTile: React.FC<ParticipantTileProps> = ({
           style={{
             width: '100%',
             height: '100%',
-            objectFit: 'cover',
-            transform: isLocal ? 'scaleX(-1)' : 'none',
+            objectFit: isScreenSharing ? 'contain' : 'cover',
+            backgroundColor: '#000000',
+            transform: isLocal && !isScreenSharing ? 'scaleX(-1)' : 'none',
           }}
         />
       ) : (
@@ -77,8 +82,8 @@ const ParticipantTile: React.FC<ParticipantTileProps> = ({
           bottom: '12px',
           left: '12px',
           padding: '4px 10px',
-          backgroundColor: 'rgba(0, 0, 0, 0.65)',
-          backdropFilter: 'blur(4px)',
+          backgroundColor: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(6px)',
           borderRadius: 'var(--radius-sm)',
           fontSize: '0.75rem',
           color: '#FFFFFF',
@@ -89,6 +94,20 @@ const ParticipantTile: React.FC<ParticipantTileProps> = ({
         }}
       >
         <span>{name} {isLocal && '(You)'}</span>
+        {isScreenSharing && (
+          <span
+            style={{
+              backgroundColor: 'var(--brand-primary)',
+              color: '#FFFFFF',
+              padding: '1px 6px',
+              borderRadius: '4px',
+              fontSize: '0.65rem',
+              fontWeight: 600,
+            }}
+          >
+            Presenting
+          </span>
+        )}
         {isMuted && <span style={{ color: 'var(--danger)', fontSize: '0.7rem' }}>• Muted</span>}
       </div>
     </div>
@@ -225,6 +244,7 @@ export const CallOverlay: React.FC = () => {
           avatar={user?.avatar}
           isMuted={isMuted}
           isCameraOff={isCameraOff}
+          isScreenSharing={isScreenSharing}
           isLocal={true}
         />
 
@@ -237,6 +257,7 @@ export const CallOverlay: React.FC = () => {
             avatar={peer.user.avatar}
             isMuted={peer.isMuted}
             isCameraOff={peer.isCameraOff}
+            isScreenSharing={peer.isScreenSharing}
             isLocal={false}
           />
         ))}
