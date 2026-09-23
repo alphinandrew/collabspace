@@ -1,0 +1,23 @@
+{
+  "name": "collabspace",
+  "version": "1.0.0",
+  "description": "CollabSpace - Centralized Communication & Collaboration Platform",
+  "scripts": {
+    "start:server": "cd server && npm start",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build:client": "cd client && npm run build",
+    "typecheck:client": "cd client && npm run typecheck",
+    "test:api": "cd server && npm run test:api"
+  },
+  "keywords": [
+    "collaboration",
+    "webrtc",
+    "chat",
+    "files",
+    "teams",
+    "collabspace"
+  ],
+  "author": "CollabSpace Team",
+  "license": "MIT"
+}

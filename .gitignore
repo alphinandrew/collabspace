@@ -1,0 +1,28 @@
+# Node dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment secrets
+.env
+.env.local
+
+# Local SQLite databases (development)
+server/data/*.db
+data/*.db
+
+# Local file uploads
+server/storage/uploads/*
+!server/storage/uploads/.gitkeep
+storage/uploads/*
+
+# Build output
+client/dist/
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

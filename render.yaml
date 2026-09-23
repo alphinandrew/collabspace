@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: collabspace
+    env: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    disk:
+      name: collabspace-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: PORT
+        value: 4000
+      - key: NODE_ENV
+        value: production
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: DB_SQLITE_PATH
+        value: /app/data/collabspace.db
+      - key: STORAGE_LOCAL_DIR
+        value: /app/data/uploads
+      - key: STUN_SERVER_URL
+        value: stun:stun.l.google.com:19302

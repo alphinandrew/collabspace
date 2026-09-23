@@ -1,0 +1,171 @@
+/* ==============================================================================
+   CollabSpace — Design System & CSS Custom Properties
+   A bespoke, modern, dark-first professional workspace aesthetic
+   ============================================================================== */
+
+:root {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Color System - Dark Default (Deep Indigo Obsidian) */
+  --bg-app: #080C14;
+  --bg-sidebar: #0D1322;
+  --bg-surface: #121A2D;
+  --bg-surface-elevated: #1A243D;
+  --bg-surface-hover: #222F4E;
+  --bg-card: rgba(26, 36, 61, 0.65);
+  
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-focus: #6366F1;
+  --border-highlight: rgba(99, 102, 241, 0.25);
+
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --text-inverse: #0F172A;
+
+  /* Brand Accents */
+  --brand-primary: #6366F1;
+  --brand-primary-hover: #4F46E5;
+  --brand-primary-light: rgba(99, 102, 241, 0.15);
+  --brand-gradient: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+  
+  /* Status Colors */
+  --status-online: #10B981;
+  --status-offline: #64748B;
+  --status-busy: #EF4444;
+  --status-away: #F59E0B;
+
+  --success: #10B981;
+  --success-bg: rgba(16, 185, 129, 0.12);
+  --warning: #F59E0B;
+  --warning-bg: rgba(245, 158, 11, 0.12);
+  --danger: #EF4444;
+  --danger-bg: rgba(239, 68, 68, 0.12);
+
+  /* Geometry & Elevation */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 12px 0 rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.55);
+  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.25);
+
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Light Theme Variables */
+[data-theme="light"] {
+  --bg-app: #F8FAFC;
+  --bg-sidebar: #F1F5F9;
+  --bg-surface: #FFFFFF;
+  --bg-surface-elevated: #F8FAFC;
+  --bg-surface-hover: #E2E8F0;
+  --bg-card: #FFFFFF;
+
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-focus: #4F46E5;
+  --border-highlight: rgba(79, 70, 229, 0.2);
+
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  --text-inverse: #FFFFFF;
+
+  --brand-primary: #4F46E5;
+  --brand-primary-hover: #4338CA;
+  --brand-primary-light: rgba(79, 70, 229, 0.1);
+
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px 0 rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.12);
+  --shadow-glow: 0 0 20px rgba(79, 70, 229, 0.15);
+}
+
+/* Reset & Base Styles */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button, input, textarea, select {
+  font-family: inherit;
+  color: inherit;
+}
+
+/* Custom Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Utility Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade {
+  animation: fadeIn var(--transition-base) forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp var(--transition-base) forwards;
+}
+
+/* Skeleton Loading Placeholder */
+.skeleton {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.1) 37%, rgba(255, 255, 255, 0.05) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.5s ease infinite;
+  border-radius: var(--radius-sm);
+}
