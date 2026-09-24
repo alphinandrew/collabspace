@@ -98,7 +98,10 @@ class FileController {
         return res.status(404).json({ error: 'File not found in this group.' });
       }
 
-      if (!storageService.fileExists(file.storage_key)) {
+      let stream;
+      try {
+        stream = await storageService.getReadStream(file.storage_key);
+      } catch (e) {
         return res.status(404).json({ error: 'File data is not found on storage disk.' });
       }
 
@@ -108,7 +111,6 @@ class FileController {
       res.setHeader('Content-Type', file.mime_type || 'application/octet-stream');
       res.setHeader('Content-Length', file.size);
 
-      const stream = storageService.getReadStream(file.storage_key);
       stream.pipe(res);
     } catch (err) {
       console.error('Download file error:', err);
@@ -125,7 +127,10 @@ class FileController {
         return res.status(404).json({ error: 'File not found in this group.' });
       }
 
-      if (!storageService.fileExists(file.storage_key)) {
+      let stream;
+      try {
+        stream = await storageService.getReadStream(file.storage_key);
+      } catch (e) {
         return res.status(404).json({ error: 'File data is not found on storage disk.' });
       }
 
@@ -151,7 +156,6 @@ class FileController {
       res.setHeader('Content-Disposition', `inline; filename="${file.filename}"`);
       res.setHeader('Content-Length', file.size);
 
-      const stream = storageService.getReadStream(file.storage_key);
       stream.pipe(res);
     } catch (err) {
       console.error('Preview file error:', err);

@@ -239,6 +239,12 @@ async function initSchema(db) {
       FOREIGN KEY (initiated_by) REFERENCES users(id)
     );
 
+    CREATE TABLE IF NOT EXISTS file_blobs (
+      storage_key TEXT PRIMARY KEY,
+      data BYTEA NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_groups_join_code ON groups(join_code);
     CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id);
     CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
