@@ -4,6 +4,7 @@ services:
     env: docker
     plan: free
     region: oregon
+    autoDeploy: true
     dockerfilePath: ./Dockerfile
     disk:
       name: collabspace-data
