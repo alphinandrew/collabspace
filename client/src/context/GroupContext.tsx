@@ -22,32 +22,37 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [groups, setGroups] = useState<Group[]>([]);
   const [activeGroup, setActiveGroup] = useState<Group | null>(null);
   const [activeMembers, setActiveMembers] = useState<Member[]>([]);
-  const [loadingGroups, setLoadingGroups] = useState<boolean>(false);
+  const [loadingGroups, setLoadingGroups] = useState<boolean>(true);
 
   const refreshGroups = useCallback(async () => {
     if (!user) {
       setGroups([]);
       setActiveGroup(null);
+      setLoadingGroups(false);
       return;
     }
     setLoadingGroups(true);
     try {
       const res = await api.getMyGroups();
       setGroups(res.groups);
-      if (res.groups.length > 0 && !activeGroup) {
-        // Select first group by default
-        setActiveGroup(res.groups[0]);
-      } else if (activeGroup) {
-        // Update active group data
-        const updated = res.groups.find((g) => g.id === activeGroup.id);
-        if (updated) setActiveGroup(updated);
+      if (res.groups.length > 0) {
+        const savedId = localStorage.getItem('collabspace_last_active_group');
+        const matched = savedId ? res.groups.find((g) => g.id === savedId) : null;
+        setActiveGroup((prev) => {
+          if (prev && res.groups.some((g) => g.id === prev.id)) {
+            return res.groups.find((g) => g.id === prev.id) || prev;
+          }
+          return matched || res.groups[0];
+        });
+      } else {
+        setActiveGroup(null);
       }
     } catch (err) {
       console.error('Failed to load user groups:', err);
     } finally {
       setLoadingGroups(false);
     }
-  }, [user, activeGroup]);
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -56,8 +61,9 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setGroups([]);
       setActiveGroup(null);
       setActiveMembers([]);
+      setLoadingGroups(false);
     }
-  }, [user]);
+  }, [user, refreshGroups]);
 
   const refreshActiveGroupMembers = useCallback(async () => {
     if (!activeGroup) return;
@@ -71,16 +77,19 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     if (activeGroup) {
+      localStorage.setItem('collabspace_last_active_group', activeGroup.id);
       refreshActiveGroupMembers();
     }
   }, [activeGroup, refreshActiveGroupMembers]);
 
   const selectGroup = (group: Group) => {
+    localStorage.setItem('collabspace_last_active_group', group.id);
     setActiveGroup(group);
   };
 
   const createGroup = async (name: string, description?: string, avatar?: string) => {
     const res = await api.createGroup(name, description, avatar);
+    localStorage.setItem('collabspace_last_active_group', res.group.id);
     setGroups((prev) => [res.group, ...prev]);
     setActiveGroup(res.group);
     return res;
@@ -88,9 +97,12 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const joinByCode = async (code: string) => {
     const res = await api.joinByCode(code);
+    localStorage.setItem('collabspace_last_active_group', res.group.id);
     setGroups((prev) => {
       const exists = prev.some((g) => g.id === res.group.id);
-      if (exists) return prev;
+      if (exists) {
+        return prev.map((g) => (g.id === res.group.id ? res.group : g));
+      }
       return [res.group, ...prev];
     });
     setActiveGroup(res.group);
@@ -99,9 +111,12 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const joinByQr = async (token: string) => {
     const res = await api.joinByQr(token);
+    localStorage.setItem('collabspace_last_active_group', res.group.id);
     setGroups((prev) => {
       const exists = prev.some((g) => g.id === res.group.id);
-      if (exists) return prev;
+      if (exists) {
+        return prev.map((g) => (g.id === res.group.id ? res.group : g));
+      }
       return [res.group, ...prev];
     });
     setActiveGroup(res.group);

@@ -1,13 +1,61 @@
 const fs = require('fs');
 const path = require('path');
-const initSqlJs = require('sql.js');
 const config = require('../config');
 
 let dbInstance = null;
 
+function toPgSql(sql) {
+  let index = 0;
+  return sql.replace(/\?/g, () => `$${++index}`);
+}
+
 async function getDatabase() {
   if (dbInstance) return dbInstance;
 
+  // Cloud PostgreSQL Driver
+  if (config.db.driver === 'postgres' || config.db.url) {
+    const { Pool } = require('pg');
+    const pool = new Pool({
+      connectionString: config.db.url,
+      ssl: config.db.url.includes('localhost') ? false : { rejectUnauthorized: false },
+    });
+
+    const dbWrapper = {
+      driver: 'postgres',
+      raw: pool,
+
+      async run(sql, params = []) {
+        const pgSql = toPgSql(sql);
+        return pool.query(pgSql, params);
+      },
+
+      async get(sql, params = []) {
+        const pgSql = toPgSql(sql);
+        const res = await pool.query(pgSql, params);
+        return res.rows[0] || null;
+      },
+
+      async all(sql, params = []) {
+        const pgSql = toPgSql(sql);
+        const res = await pool.query(pgSql, params);
+        return res.rows;
+      },
+
+      async exec(sql) {
+        return pool.query(sql);
+      },
+
+      persist() {}
+    };
+
+    await initSchema(dbWrapper);
+    dbInstance = dbWrapper;
+    console.log('✅ Connected to Cloud Persistent PostgreSQL database.');
+    return dbInstance;
+  }
+
+  // SQLite Driver for Local Offline Development
+  const initSqlJs = require('sql.js');
   const dbDir = path.dirname(config.db.sqlitePath);
   if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
@@ -36,6 +84,7 @@ async function getDatabase() {
 
   // Wrapper with parameterized query safety
   const dbWrapper = {
+    driver: 'sqlite',
     raw: db,
     persist,
 
@@ -89,14 +138,14 @@ async function getDatabase() {
   };
 
   // Run migrations
-  initSchema(dbWrapper);
+  await initSchema(dbWrapper);
 
   dbInstance = dbWrapper;
   return dbInstance;
 }
 
-function initSchema(db) {
-  db.exec(`
+async function initSchema(db) {
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,

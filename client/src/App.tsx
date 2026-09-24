@@ -78,7 +78,7 @@ const MainAppContent: React.FC = () => {
   const [invitationGroup, setInvitationGroup] = useState<Group | null>(null);
   const [invitationData, setInvitationData] = useState<InvitationData | null>(null);
 
-  if (authLoading || (user && loadingGroups && groups.length === 0)) {
+  if (authLoading || (user && loadingGroups)) {
     return (
       <div
         style={{

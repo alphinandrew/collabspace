@@ -148,9 +148,10 @@ class GroupController {
       // Check if user is already a member
       const existing = await groupRepository.findMember(group.id, userId);
       if (existing) {
-        return res.status(400).json({
-          error: 'You are already a member of this group.',
-          groupId: group.id,
+        return res.status(200).json({
+          message: 'You are already a member of this workspace.',
+          group,
+          alreadyMember: true,
         });
       }
 
@@ -208,9 +209,10 @@ class GroupController {
       // Check if user is already a member
       const existing = await groupRepository.findMember(group.id, userId);
       if (existing) {
-        return res.status(400).json({
-          error: 'You are already a member of this group.',
-          groupId: group.id,
+        return res.status(200).json({
+          message: 'You are already a member of this workspace.',
+          group,
+          alreadyMember: true,
         });
       }
 

@@ -15,7 +15,8 @@ const config = {
     maxFileSizeMb: parseInt(process.env.MAX_FILE_SIZE_MB || '50', 10),
   },
   db: {
-    driver: process.env.DB_DRIVER || 'sqlite',
+    driver: process.env.DATABASE_URL ? 'postgres' : (process.env.DB_DRIVER || 'sqlite'),
+    url: process.env.DATABASE_URL || '',
     sqlitePath: path.resolve(process.cwd(), process.env.DB_SQLITE_PATH || './data/collabspace.db'),
   },
   webrtc: {
