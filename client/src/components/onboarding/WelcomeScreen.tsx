@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
-import { Users, PlusCircle, ArrowRight, ShieldCheck, Zap, Lock } from 'lucide-react';
+import { Users, PlusCircle, ArrowRight, ShieldCheck, Zap, Lock, KeyRound, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { api } from '../../services/api';
 
 interface WelcomeScreenProps {
   onJoinGroup: () => void;
@@ -14,16 +15,22 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onCreateGroup,
 }) => {
   const { user, login, register } = useAuth();
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('register');
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot' | 'reset'>('register');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authSuccess, setAuthSuccess] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
+    setAuthSuccess(null);
     setAuthLoading(true);
 
     try {
@@ -34,6 +41,58 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       }
     } catch (err: any) {
       setAuthError(err.message || 'Authentication failed. Please check credentials.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthSuccess(null);
+    setAuthLoading(true);
+
+    try {
+      const res = await api.forgotPassword(email);
+      if (res.code) {
+        setGeneratedCode(res.code);
+        setResetCode(res.code);
+      }
+      setAuthSuccess('Verification code generated successfully!');
+      setAuthMode('reset');
+    } catch (err: any) {
+      setAuthError(err.message || 'Failed to request password reset. Please check your email.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthSuccess(null);
+
+    if (newPassword.length < 6) {
+      setAuthError('New password must be at least 6 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setAuthError('Passwords do not match.');
+      return;
+    }
+
+    setAuthLoading(true);
+
+    try {
+      const res = await api.resetPassword(email, resetCode, newPassword);
+      setAuthSuccess(res.message || 'Password reset successfully! You can now sign in.');
+      setPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setGeneratedCode(null);
+      setAuthMode('login');
+    } catch (err: any) {
+      setAuthError(err.message || 'Failed to reset password. Please verify the code.');
     } finally {
       setAuthLoading(false);
     }
@@ -206,9 +265,216 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               Create a Group
             </Button>
           </div>
+        ) : authMode === 'forgot' ? (
+          /* Forgot Password Form */
+          <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ textAlign: 'left', marginBottom: '4px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('login');
+                  setAuthError(null);
+                  setAuthSuccess(null);
+                }}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--brand-primary)',
+                  fontSize: '0.85rem',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: 0,
+                  marginBottom: '12px',
+                }}
+              >
+                <ArrowLeft size={16} /> Back to Sign In
+              </button>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                Reset Your Password
+              </h2>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                Enter your account email. You will receive an instant verification code to set a new password.
+              </p>
+            </div>
+
+            {authError && (
+              <div
+                style={{
+                  padding: '10px 14px',
+                  background: 'var(--danger-bg)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  borderRadius: 'var(--radius-md)',
+                  color: 'var(--danger)',
+                  fontSize: '0.85rem',
+                }}
+              >
+                {authError}
+              </div>
+            )}
+
+            <Input
+              label="Work Email"
+              type="email"
+              placeholder="alex@team.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoFocus
+            />
+
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              style={{ width: '100%', height: '46px', marginTop: '6px' }}
+              loading={authLoading}
+              icon={<KeyRound size={18} />}
+            >
+              Get Verification Code
+            </Button>
+          </form>
+        ) : authMode === 'reset' ? (
+          /* Reset Password Form */
+          <form onSubmit={handleResetPassword} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ textAlign: 'left', marginBottom: '4px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('login');
+                  setAuthError(null);
+                  setAuthSuccess(null);
+                }}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--brand-primary)',
+                  fontSize: '0.85rem',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: 0,
+                  marginBottom: '12px',
+                }}
+              >
+                <ArrowLeft size={16} /> Back to Sign In
+              </button>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                Set New Password
+              </h2>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                Enter the verification code and your new password.
+              </p>
+            </div>
+
+            {generatedCode && (
+              <div
+                style={{
+                  padding: '14px',
+                  background: 'rgba(99, 102, 241, 0.1)',
+                  border: '1px solid rgba(99, 102, 241, 0.35)',
+                  borderRadius: 'var(--radius-md)',
+                  textAlign: 'center',
+                }}
+              >
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginBottom: '4px' }}>
+                  Your Secure Recovery Code:
+                </div>
+                <div
+                  style={{
+                    fontSize: '1.6rem',
+                    fontWeight: 800,
+                    letterSpacing: '5px',
+                    color: 'var(--brand-primary)',
+                    fontFamily: 'monospace',
+                  }}
+                >
+                  {generatedCode}
+                </div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '4px' }}>
+                  (Code pre-filled below for instant recovery)
+                </div>
+              </div>
+            )}
+
+            {authError && (
+              <div
+                style={{
+                  padding: '10px 14px',
+                  background: 'var(--danger-bg)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  borderRadius: 'var(--radius-md)',
+                  color: 'var(--danger)',
+                  fontSize: '0.85rem',
+                }}
+              >
+                {authError}
+              </div>
+            )}
+
+            <Input
+              label="6-Digit Verification Code"
+              placeholder="e.g. 849201"
+              value={resetCode}
+              onChange={(e) => setResetCode(e.target.value.trim())}
+              required
+            />
+
+            <Input
+              label="New Password"
+              type="password"
+              placeholder="Minimum 6 characters"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+            />
+
+            <Input
+              label="Confirm New Password"
+              type="password"
+              placeholder="Re-enter new password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              style={{ width: '100%', height: '46px', marginTop: '6px' }}
+              loading={authLoading}
+              icon={<CheckCircle2 size={18} />}
+            >
+              Update Password & Sign In
+            </Button>
+          </form>
         ) : (
-          /* Authentication Form */
+          /* Authentication Form (Sign In / Register) */
           <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {authSuccess && (
+              <div
+                style={{
+                  padding: '10px 14px',
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  borderRadius: 'var(--radius-md)',
+                  color: 'var(--success, #10B981)',
+                  fontSize: '0.85rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <CheckCircle2 size={16} />
+                <span>{authSuccess}</span>
+              </div>
+            )}
+
             {authError && (
               <div
                 style={{
@@ -243,14 +509,49 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               required
             />
 
-            <Input
-              label="Password"
-              type="password"
-              placeholder="Minimum 6 characters"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div>
+              {authMode === 'login' && (
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '6px',
+                  }}
+                >
+                  <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
+                    Password
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode('forgot');
+                      setAuthError(null);
+                      setAuthSuccess(null);
+                    }}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--brand-primary)',
+                      fontSize: '0.8rem',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      padding: 0,
+                    }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
+              <Input
+                label={authMode === 'register' ? 'Password' : ''}
+                type="password"
+                placeholder="Minimum 6 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
 
             <Button
               type="submit"
@@ -269,6 +570,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                 onClick={() => {
                   setAuthMode(authMode === 'register' ? 'login' : 'register');
                   setAuthError(null);
+                  setAuthSuccess(null);
                 }}
                 style={{
                   background: 'transparent',

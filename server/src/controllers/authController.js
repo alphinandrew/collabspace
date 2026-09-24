@@ -153,6 +153,74 @@ class AuthController {
       return res.json({ message: 'Logged out.' });
     }
   }
+
+  async forgotPassword(req, res) {
+    try {
+      const { email } = req.body;
+      if (!email || !email.includes('@')) {
+        return res.status(400).json({ error: 'Valid email address is required.' });
+      }
+
+      const user = await userRepository.findByEmail(email);
+      if (!user) {
+        return res.status(404).json({ error: 'No account found with this email address.' });
+      }
+
+      // Generate a 6-digit verification code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes
+      const resetId = 'rst_' + uuidv4().replace(/-/g, '').slice(0, 16);
+
+      await userRepository.createResetCode(resetId, email, code, expiresAt);
+
+      console.log(`[PASSWORD_RESET] Code generated for ${email}: ${code}`);
+
+      return res.status(200).json({
+        message: 'Password reset verification code generated.',
+        code, // Provided directly for immediate in-app recovery
+        expiresInMinutes: 15,
+        notice: 'Enter this 6-digit verification code to set your new password.'
+      });
+    } catch (err) {
+      console.error('Forgot password error:', err);
+      return res.status(500).json({ error: 'Failed to initiate password reset.' });
+    }
+  }
+
+  async resetPassword(req, res) {
+    try {
+      const { email, code, newPassword } = req.body;
+
+      if (!email || !code || !newPassword) {
+        return res.status(400).json({ error: 'Email, verification code, and new password are required.' });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'New password must be at least 6 characters.' });
+      }
+
+      const user = await userRepository.findByEmail(email);
+      if (!user) {
+        return res.status(404).json({ error: 'No account found with this email address.' });
+      }
+
+      const resetRecord = await userRepository.findValidResetCode(email, code);
+      if (!resetRecord) {
+        return res.status(400).json({ error: 'Invalid or expired verification code. Please request a new code.' });
+      }
+
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+      await userRepository.updatePassword(user.id, passwordHash);
+      await userRepository.markResetCodeUsed(resetRecord.id);
+
+      return res.status(200).json({
+        message: 'Password has been reset successfully. You can now sign in with your new password.',
+      });
+    } catch (err) {
+      console.error('Reset password error:', err);
+      return res.status(500).json({ error: 'Failed to reset password.' });
+    }
+  }
 }
 
 module.exports = new AuthController();

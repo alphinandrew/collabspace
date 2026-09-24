@@ -122,6 +122,21 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
+  forgotPassword: (email: string) =>
+    apiRequest<{ message: string; code?: string; expiresInMinutes?: number; notice?: string }>(
+      '/auth/forgot-password',
+      {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }
+    ),
+
+  resetPassword: (email: string, code: string, newPassword: string) =>
+    apiRequest<{ message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, code, newPassword }),
+    }),
+
   getMe: () => apiRequest<{ user: User }>('/auth/me'),
 
   updateProfile: (profile: Partial<User>) =>

@@ -245,12 +245,22 @@ async function initSchema(db) {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS password_resets (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      code TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_groups_join_code ON groups(join_code);
     CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id);
     CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
     CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token);
     CREATE INDEX IF NOT EXISTS idx_messages_group ON messages(group_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_files_group ON files(group_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(email);
   `);
 }
 

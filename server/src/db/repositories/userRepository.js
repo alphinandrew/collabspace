@@ -40,6 +40,40 @@ class UserRepository {
     );
     return this.findById(id);
   }
+
+  async updatePassword(id, passwordHash) {
+    const db = await getDatabase();
+    const now = new Date().toISOString();
+    db.run(`UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`, [passwordHash, now, id]);
+    return this.findById(id);
+  }
+
+  async createResetCode(id, email, code, expiresAt) {
+    const db = await getDatabase();
+    const now = new Date().toISOString();
+    db.run(
+      `INSERT INTO password_resets (id, email, code, expires_at, used, created_at)
+       VALUES (?, ?, ?, ?, 0, ?)`,
+      [id, email.toLowerCase().trim(), code, expiresAt, now]
+    );
+  }
+
+  async findValidResetCode(email, code) {
+    const db = await getDatabase();
+    const now = new Date().toISOString();
+    const record = db.get(
+      `SELECT * FROM password_resets 
+       WHERE email = ? AND code = ? AND used = 0 AND expires_at > ?
+       ORDER BY created_at DESC LIMIT 1`,
+      [email.toLowerCase().trim(), code.trim(), now]
+    );
+    return record || null;
+  }
+
+  async markResetCodeUsed(id) {
+    const db = await getDatabase();
+    db.run(`UPDATE password_resets SET used = 1 WHERE id = ?`, [id]);
+  }
 }
 
 module.exports = new UserRepository();
