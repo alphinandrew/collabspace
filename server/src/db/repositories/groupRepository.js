@@ -4,7 +4,7 @@ class GroupRepository {
   async create({ id, name, description, avatar, ownerId, joinCode }) {
     const db = await getDatabase();
     const now = new Date().toISOString();
-    db.run(
+    await db.run(
       `INSERT INTO groups (id, name, description, avatar, owner_id, join_code, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, name, description || '', avatar || null, ownerId, joinCode, now, now]
@@ -12,31 +12,31 @@ class GroupRepository {
 
     // Add owner as group_member with role 'owner'
     const memberId = 'gm_' + id + '_' + ownerId;
-    db.run(
+    await db.run(
       `INSERT INTO group_members (id, group_id, user_id, role, joined_at)
        VALUES (?, ?, ?, 'owner', ?)`,
       [memberId, id, ownerId, now]
     );
 
-    return this.findById(id);
+    return await this.findById(id);
   }
 
   async findById(id) {
     const db = await getDatabase();
-    const group = db.get(`SELECT * FROM groups WHERE id = ?`, [id]);
+    const group = await db.get(`SELECT * FROM groups WHERE id = ?`, [id]);
     if (!group) return null;
-    const memberCountRow = db.get(`SELECT COUNT(*) as count FROM group_members WHERE group_id = ?`, [id]);
-    group.member_count = memberCountRow ? memberCountRow.count : 0;
+    const memberCountRow = await db.get(`SELECT COUNT(*) as count FROM group_members WHERE group_id = ?`, [id]);
+    group.member_count = memberCountRow ? parseInt(memberCountRow.count, 10) : 0;
     return group;
   }
 
   async findByCode(joinCode) {
     const db = await getDatabase();
     const formatted = joinCode.toUpperCase().trim();
-    const group = db.get(`SELECT * FROM groups WHERE join_code = ?`, [formatted]);
+    const group = await db.get(`SELECT * FROM groups WHERE join_code = ?`, [formatted]);
     if (!group) return null;
-    const memberCountRow = db.get(`SELECT COUNT(*) as count FROM group_members WHERE group_id = ?`, [group.id]);
-    group.member_count = memberCountRow ? memberCountRow.count : 0;
+    const memberCountRow = await db.get(`SELECT COUNT(*) as count FROM group_members WHERE group_id = ?`, [group.id]);
+    group.member_count = memberCountRow ? parseInt(memberCountRow.count, 10) : 0;
     return group;
   }
 
@@ -50,20 +50,25 @@ class GroupRepository {
       FROM groups g
       INNER JOIN group_members gm ON g.id = gm.group_id
       WHERE gm.user_id = ?
-      ORDER BY COALESCE(last_activity, g.created_at) DESC
+      ORDER BY g.created_at DESC
     `;
-    return db.all(sql, [userId]);
+    const rows = await db.all(sql, [userId]);
+    return (rows || []).map((r) => ({
+      ...r,
+      member_count: parseInt(r.member_count || 0, 10),
+      message_count: parseInt(r.message_count || 0, 10),
+    }));
   }
 
   async addMember({ id, groupId, userId, role = 'member' }) {
     const db = await getDatabase();
     const now = new Date().toISOString();
-    db.run(
+    await db.run(
       `INSERT INTO group_members (id, group_id, user_id, role, joined_at)
        VALUES (?, ?, ?, ?, ?)`,
       [id, groupId, userId, role, now]
     );
-    return this.findMember(groupId, userId);
+    return await this.findMember(groupId, userId);
   }
 
   async findMember(groupId, userId) {
@@ -74,7 +79,7 @@ class GroupRepository {
       INNER JOIN users u ON gm.user_id = u.id
       WHERE gm.group_id = ? AND gm.user_id = ?
     `;
-    return db.get(sql, [groupId, userId]);
+    return await db.get(sql, [groupId, userId]);
   }
 
   async listMembers(groupId) {
@@ -93,21 +98,21 @@ class GroupRepository {
         END,
         u.name ASC
     `;
-    return db.all(sql, [groupId]);
+    return await db.all(sql, [groupId]);
   }
 
   async updateMemberRole(groupId, userId, role) {
     const db = await getDatabase();
-    db.run(
+    await db.run(
       `UPDATE group_members SET role = ? WHERE group_id = ? AND user_id = ?`,
       [role, groupId, userId]
     );
-    return this.findMember(groupId, userId);
+    return await this.findMember(groupId, userId);
   }
 
   async removeMember(groupId, userId) {
     const db = await getDatabase();
-    db.run(
+    await db.run(
       `DELETE FROM group_members WHERE group_id = ? AND user_id = ?`,
       [groupId, userId]
     );
@@ -117,7 +122,7 @@ class GroupRepository {
   async updateGroup(groupId, { name, description, avatar }) {
     const db = await getDatabase();
     const now = new Date().toISOString();
-    db.run(
+    await db.run(
       `UPDATE groups 
        SET name = COALESCE(?, name),
            description = COALESCE(?, description),
@@ -126,7 +131,7 @@ class GroupRepository {
        WHERE id = ?`,
       [name, description, avatar, now, groupId]
     );
-    return this.findById(groupId);
+    return await this.findById(groupId);
   }
 }
 

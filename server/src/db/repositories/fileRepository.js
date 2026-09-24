@@ -4,12 +4,12 @@ class FileRepository {
   async create({ id, groupId, uploaderId, filename, storageKey, mimeType, size }) {
     const db = await getDatabase();
     const now = new Date().toISOString();
-    db.run(
+    await db.run(
       `INSERT INTO files (id, group_id, uploader_id, filename, storage_key, mime_type, size, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, groupId, uploaderId, filename, storageKey, mimeType, size, now]
     );
-    return this.findById(id);
+    return await this.findById(id);
   }
 
   async findById(id) {
@@ -20,7 +20,7 @@ class FileRepository {
       INNER JOIN users u ON f.uploader_id = u.id
       WHERE f.id = ?
     `;
-    return db.get(sql, [id]);
+    return await db.get(sql, [id]);
   }
 
   async listGroupFiles(groupId, { category = 'all', search = '', sort = 'newest', limit = 100, offset = 0 } = {}) {
@@ -66,7 +66,7 @@ class FileRepository {
     if (sort === 'oldest') {
       sql += ` ORDER BY f.created_at ASC`;
     } else if (sort === 'filename') {
-      sql += ` ORDER BY f.filename COLLATE NOCASE ASC`;
+      sql += ` ORDER BY LOWER(f.filename) ASC`;
     } else if (sort === 'size') {
       sql += ` ORDER BY f.size DESC`;
     } else {
@@ -76,21 +76,21 @@ class FileRepository {
     sql += ` LIMIT ? OFFSET ?`;
     params.push(limit, offset);
 
-    return db.all(sql, params);
+    return await db.all(sql, params);
   }
 
   async countGroupFiles(groupId) {
     const db = await getDatabase();
-    const row = db.get(`SELECT COUNT(*) as count, COALESCE(SUM(size), 0) as total_size FROM files WHERE group_id = ?`, [groupId]);
+    const row = await db.get(`SELECT COUNT(*) as count, COALESCE(SUM(size), 0) as total_size FROM files WHERE group_id = ?`, [groupId]);
     return {
-      count: row ? row.count : 0,
-      totalSize: row ? row.total_size : 0,
+      count: row ? parseInt(row.count || 0, 10) : 0,
+      totalSize: row ? parseInt(row.total_size || 0, 10) : 0,
     };
   }
 
   async delete(id) {
     const db = await getDatabase();
-    db.run(`DELETE FROM files WHERE id = ?`, [id]);
+    await db.run(`DELETE FROM files WHERE id = ?`, [id]);
     return true;
   }
 }

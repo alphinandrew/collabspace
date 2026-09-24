@@ -4,7 +4,7 @@ class MessageRepository {
   async create({ id, groupId, senderId, content, messageType = 'text', fileId = null }) {
     const db = await getDatabase();
     const now = new Date().toISOString();
-    db.run(
+    await db.run(
       `INSERT INTO messages (id, group_id, sender_id, content, message_type, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [id, groupId, senderId, content, messageType, now, now]
@@ -12,13 +12,13 @@ class MessageRepository {
 
     if (fileId) {
       const attachmentId = 'att_' + id + '_' + fileId;
-      db.run(
+      await db.run(
         `INSERT INTO attachments (id, message_id, file_id) VALUES (?, ?, ?)`,
         [attachmentId, id, fileId]
       );
     }
 
-    return this.findById(id);
+    return await this.findById(id);
   }
 
   async findById(id) {
@@ -32,7 +32,7 @@ class MessageRepository {
       LEFT JOIN files f ON a.file_id = f.id
       WHERE m.id = ?
     `;
-    return db.get(sql, [id]);
+    return await db.get(sql, [id]);
   }
 
   async listGroupMessages(groupId, { limit = 100, before = null } = {}) {
@@ -56,7 +56,7 @@ class MessageRepository {
     sql += ` ORDER BY m.created_at ASC LIMIT ?`;
     params.push(limit);
 
-    return db.all(sql, params);
+    return await db.all(sql, params);
   }
 
   async searchMessages(groupId, query, limit = 30) {
@@ -70,7 +70,7 @@ class MessageRepository {
       ORDER BY m.created_at DESC
       LIMIT ?
     `;
-    return db.all(sql, [groupId, wildcard, limit]);
+    return await db.all(sql, [groupId, wildcard, limit]);
   }
 }
 

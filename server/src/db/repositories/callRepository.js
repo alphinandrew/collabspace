@@ -4,12 +4,12 @@ class CallRepository {
   async create({ id, groupId, initiatedBy, callType = 'video' }) {
     const db = await getDatabase();
     const now = new Date().toISOString();
-    db.run(
+    await db.run(
       `INSERT INTO calls (id, group_id, initiated_by, call_type, status, started_at)
        VALUES (?, ?, ?, ?, 'ringing', ?)`,
       [id, groupId, initiatedBy, callType, now]
     );
-    return this.findById(id);
+    return await this.findById(id);
   }
 
   async findById(id) {
@@ -20,7 +20,7 @@ class CallRepository {
       INNER JOIN users u ON c.initiated_by = u.id
       WHERE c.id = ?
     `;
-    return db.get(sql, [id]);
+    return await db.get(sql, [id]);
   }
 
   async findActiveCall(groupId) {
@@ -32,17 +32,17 @@ class CallRepository {
       WHERE c.group_id = ? AND c.status IN ('ringing', 'active')
       ORDER BY c.started_at DESC LIMIT 1
     `;
-    return db.get(sql, [groupId]);
+    return await db.get(sql, [groupId]);
   }
 
   async updateStatus(id, status, endedAt = null) {
     const db = await getDatabase();
     if (endedAt) {
-      db.run(`UPDATE calls SET status = ?, ended_at = ? WHERE id = ?`, [status, endedAt, id]);
+      await db.run(`UPDATE calls SET status = ?, ended_at = ? WHERE id = ?`, [status, endedAt, id]);
     } else {
-      db.run(`UPDATE calls SET status = ? WHERE id = ?`, [status, id]);
+      await db.run(`UPDATE calls SET status = ? WHERE id = ?`, [status, id]);
     }
-    return this.findById(id);
+    return await this.findById(id);
   }
 
   async listGroupCalls(groupId, limit = 20) {
@@ -54,7 +54,7 @@ class CallRepository {
       WHERE c.group_id = ?
       ORDER BY c.started_at DESC LIMIT ?
     `;
-    return db.all(sql, [groupId, limit]);
+    return await db.all(sql, [groupId, limit]);
   }
 }
 
