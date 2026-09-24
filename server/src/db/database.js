@@ -14,44 +14,62 @@ async function getDatabase() {
 
   // Cloud PostgreSQL Driver
   if (config.db.driver === 'postgres' || config.db.url) {
-    const { Pool } = require('pg');
-    const pool = new Pool({
-      connectionString: config.db.url,
-      ssl: config.db.url.includes('localhost') ? false : { rejectUnauthorized: false },
-    });
+    try {
+      let connectionUrl = config.db.url;
 
-    const dbWrapper = {
-      driver: 'postgres',
-      raw: pool,
+      // Auto-convert direct Supabase IPv6 domain to IPv4 Pooler if on Render / IPv4 network
+      if (connectionUrl && connectionUrl.includes('.supabase.co') && !connectionUrl.includes('pooler.supabase.com')) {
+        const poolerMatch = connectionUrl.match(/postgresql:\/\/([^:]+):([^@]+)@db\.([^.]+)\.supabase\.co:(\d+)\/(.+)/);
+        if (poolerMatch) {
+          const [, user, pass, projectRef, , dbName] = poolerMatch;
+          console.log(`ℹ️ Auto-converting direct Supabase IPv6 domain to IPv4 Pooler for project: ${projectRef}`);
+          connectionUrl = `postgresql://${user}.${projectRef}:${pass}@aws-0-ap-southeast-2.pooler.supabase.com:6543/${dbName}`;
+        }
+      }
 
-      async run(sql, params = []) {
-        const pgSql = toPgSql(sql);
-        return pool.query(pgSql, params);
-      },
+      const { Pool } = require('pg');
+      const pool = new Pool({
+        connectionString: connectionUrl,
+        ssl: connectionUrl.includes('localhost') ? false : { rejectUnauthorized: false },
+        connectionTimeoutMillis: 8000,
+      });
 
-      async get(sql, params = []) {
-        const pgSql = toPgSql(sql);
-        const res = await pool.query(pgSql, params);
-        return res.rows[0] || null;
-      },
+      const dbWrapper = {
+        driver: 'postgres',
+        raw: pool,
 
-      async all(sql, params = []) {
-        const pgSql = toPgSql(sql);
-        const res = await pool.query(pgSql, params);
-        return res.rows;
-      },
+        async run(sql, params = []) {
+          const pgSql = toPgSql(sql);
+          return pool.query(pgSql, params);
+        },
 
-      async exec(sql) {
-        return pool.query(sql);
-      },
+        async get(sql, params = []) {
+          const pgSql = toPgSql(sql);
+          const res = await pool.query(pgSql, params);
+          return res.rows[0] || null;
+        },
 
-      persist() {}
-    };
+        async all(sql, params = []) {
+          const pgSql = toPgSql(sql);
+          const res = await pool.query(pgSql, params);
+          return res.rows;
+        },
 
-    await initSchema(dbWrapper);
-    dbInstance = dbWrapper;
-    console.log('✅ Connected to Cloud Persistent PostgreSQL database.');
-    return dbInstance;
+        async exec(sql) {
+          return pool.query(sql);
+        },
+
+        persist() {}
+      };
+
+      await initSchema(dbWrapper);
+      dbInstance = dbWrapper;
+      console.log('✅ Connected to Cloud Persistent PostgreSQL database.');
+      return dbInstance;
+    } catch (pgErr) {
+      console.error(`⚠️ PostgreSQL connection error: ${pgErr.message}. Falling back to SQLite database.`);
+      // Gracefully fall through to local SQLite database so server never crashes
+    }
   }
 
   // SQLite Driver for Local Offline Development
