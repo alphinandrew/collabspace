@@ -505,12 +505,16 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!socket) return;
 
-    // Incoming call notification
+    // Incoming call notification (deduplicate since server sends via both group & user rooms)
     const handleIncomingCall = (data: IncomingCallData) => {
       console.log('[WebRTC] Received call:incoming:', data);
       // Only show incoming modal if not already in another call
       if (callStatus === 'idle') {
-        setIncomingCall(data);
+        setIncomingCall((prev) => {
+          // Deduplicate: if we already have an incoming call with the same callId, ignore
+          if (prev && prev.callId === data.callId) return prev;
+          return data;
+        });
       }
     };
 
