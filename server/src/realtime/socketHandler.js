@@ -38,6 +38,7 @@ function initSocketIO(io) {
 
   io.on('connection', async (socket) => {
     const userId = socket.user.id;
+    const userName = socket.user.name;
 
     // Track user online sockets
     if (!onlineUsers.has(userId)) {
@@ -46,14 +47,32 @@ function initSocketIO(io) {
     }
     onlineUsers.get(userId).add(socket.id);
 
+    // Join personal user room so server can route events directly to all sockets of this user
+    const userRoom = `user_${userId}`;
+    socket.join(userRoom);
+
+    // Auto-join all group rooms this user belongs to on connection
+    // Server guarantees socket joins authorized group rooms rather than relying solely on client timing
+    try {
+      const userGroups = await groupRepository.listUserGroups(userId);
+      for (const g of userGroups) {
+        const groupRoom = `group_${g.id}`;
+        socket.join(groupRoom);
+      }
+      console.log(`[Socket:connect] Socket ${socket.id} (user: ${userName} / ${userId}) joined ${userRoom} + ${userGroups.length} group rooms.`);
+    } catch (err) {
+      console.error(`[Socket:connect] Error auto-joining group rooms for user ${userId}:`, err);
+    }
+
     // Broadcast user online to all
     io.emit('presence:update', { userId, status: 'online' });
 
-    // Join a group room with membership verification
+    // Join / focus a group room with membership verification
     socket.on('group:join', async ({ groupId }, callback) => {
       try {
         const membership = await groupRepository.findMember(groupId, userId);
         if (!membership) {
+          console.warn(`[Socket:group:join] Unauthorized join attempt by user ${userId} for group ${groupId}`);
           if (typeof callback === 'function') {
             return callback({ success: false, error: 'Unauthorized: not a group member.' });
           }
@@ -62,18 +81,24 @@ function initSocketIO(io) {
 
         const room = `group_${groupId}`;
         socket.join(room);
+        socket.activeGroupId = groupId;
+        console.log(`[Socket:group:join] Socket ${socket.id} (user: ${userId}) confirmed in ${room}`);
 
         if (typeof callback === 'function') {
           callback({ success: true, room });
         }
       } catch (err) {
+        console.error(`[Socket:group:join] Error:`, err);
         if (typeof callback === 'function') callback({ success: false, error: err.message });
       }
     });
 
-    // Leave a group room
+    // Leave a group active focus
     socket.on('group:leave', ({ groupId }) => {
-      socket.leave(`group_${groupId}`);
+      if (socket.activeGroupId === groupId) {
+        socket.activeGroupId = null;
+      }
+      console.log(`[Socket:group:leave] Socket ${socket.id} unfocused group ${groupId}`);
     });
 
     // Typing indicators
@@ -90,7 +115,8 @@ function initSocketIO(io) {
     setupCallSignaler(io, socket);
 
     // Disconnect handling
-    socket.on('disconnect', async () => {
+    socket.on('disconnect', async (reason) => {
+      console.log(`[Socket:disconnect] Socket ${socket.id} (user: ${userId}) disconnected: ${reason}`);
       handleSocketDisconnect(io, socket);
 
       const userSockets = onlineUsers.get(userId);

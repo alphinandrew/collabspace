@@ -51,6 +51,16 @@ export const AppLayout: React.FC = () => {
     }
   };
 
+  const handleAnswerCall = async () => {
+    if (incomingCall) {
+      const targetGroup = groups.find((g) => g.id === incomingCall.groupId);
+      if (targetGroup && targetGroup.id !== activeGroup?.id) {
+        selectGroup(targetGroup);
+      }
+    }
+    await answerCall();
+  };
+
   if (!activeGroup) {
     return (
       <div
@@ -284,7 +294,7 @@ export const AppLayout: React.FC = () => {
       {/* Calling Overlays */}
       <IncomingCallModal
         incomingCall={incomingCall}
-        onAnswer={answerCall}
+        onAnswer={handleAnswerCall}
         onDecline={declineCall}
       />
       <CallOverlay />

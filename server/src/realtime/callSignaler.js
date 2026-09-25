@@ -1,4 +1,5 @@
 const callRepository = require('../db/repositories/callRepository');
+const groupRepository = require('../db/repositories/groupRepository');
 
 // Map to track active in-memory call state: groupId -> CallState
 const activeCalls = new Map();
@@ -8,6 +9,25 @@ function setupCallSignaler(io, socket) {
   socket.on('call:initiate', async ({ groupId, callType = 'video' }, callback) => {
     try {
       const user = socket.user;
+      if (!user) {
+        if (typeof callback === 'function') return callback({ success: false, error: 'Unauthenticated socket.' });
+        return;
+      }
+
+      // Step 6 & 7: Verify caller is an authorized member of this group
+      const membership = await groupRepository.findMember(groupId, user.id);
+      if (!membership) {
+        console.warn(`[Call:initiate] Unauthorized attempt: User ${user.id} is not a member of group ${groupId}`);
+        if (typeof callback === 'function') return callback({ success: false, error: 'Unauthorized: You are not a member of this group.' });
+        return;
+      }
+
+      const group = await groupRepository.findById(groupId);
+      if (!group) {
+        if (typeof callback === 'function') return callback({ success: false, error: 'Group does not exist.' });
+        return;
+      }
+
       let callState = activeCalls.get(groupId);
 
       if (!callState) {
@@ -23,6 +43,7 @@ function setupCallSignaler(io, socket) {
         callState = {
           callId,
           groupId,
+          groupName: group.name,
           callType,
           initiator: user,
           startedAt: new Date().toISOString(),
@@ -39,72 +60,126 @@ function setupCallSignaler(io, socket) {
         isCameraOff: false,
       });
 
-      // Broadcast incoming call notification to all other members in the group
-      socket.to(`group_${groupId}`).emit('call:incoming', {
+      // Retrieve all authorized members of this group
+      const groupMembers = await groupRepository.listMembers(groupId);
+      const recipientMembers = groupMembers.filter((m) => m.id !== user.id);
+
+      console.log(`[Call:initiate] Caller: ${user.name} (${user.id}) | Socket: ${socket.id} | Group: ${groupId} ("${group.name}") | CallId: ${callState.callId}`);
+      console.log(`[Call:routing] Routing call:incoming to ${recipientMembers.length} authorized member(s): ${recipientMembers.map((m) => `${m.name} (${m.id})`).join(', ')}`);
+
+      const incomingPayload = {
         groupId,
+        groupName: group.name,
         callId: callState.callId,
         callType: callState.callType,
-        initiator: user,
-      });
+        initiator: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          avatar: user.avatar,
+        },
+      };
+
+      // Route incoming-call event ONLY to authorized group members
+      // 1. To group room (excluding the caller socket)
+      socket.to(`group_${groupId}`).emit('call:incoming', incomingPayload);
+
+      // 2. To user-specific rooms of authorized group members
+      for (const member of recipientMembers) {
+        io.to(`user_${member.id}`).emit('call:incoming', incomingPayload);
+      }
 
       if (typeof callback === 'function') {
         callback({ success: true, callId: callState.callId });
       }
     } catch (err) {
-      console.error('Call initiate error:', err);
+      console.error('[Call:initiate] Error:', err);
       if (typeof callback === 'function') callback({ success: false, error: err.message });
     }
   });
 
   // 2. Join Call
-  socket.on('call:join', ({ groupId, isMuted = false, isCameraOff = false }, callback) => {
-    const user = socket.user;
-    let callState = activeCalls.get(groupId);
-
-    if (!callState) {
-      // Create if joining directly
-      const callId = 'cal_' + Date.now();
-      callState = {
-        callId,
-        groupId,
-        callType: 'video',
-        initiator: user,
-        startedAt: new Date().toISOString(),
-        participants: new Map(),
-      };
-      activeCalls.set(groupId, callState);
-    }
-
-    // Add participant
-    callState.participants.set(socket.id, {
-      socketId: socket.id,
-      user,
-      isMuted,
-      isCameraOff,
-    });
-
-    // Notify others in call
-    socket.to(`group_${groupId}`).emit('call:peer-joined', {
-      socketId: socket.id,
-      user,
-      isMuted,
-      isCameraOff,
-    });
-
-    // Return current participants to caller
-    const existingParticipants = [];
-    for (const [sId, p] of callState.participants.entries()) {
-      if (sId !== socket.id) {
-        existingParticipants.push(p);
+  socket.on('call:join', async ({ groupId, isMuted = false, isCameraOff = false }, callback) => {
+    try {
+      const user = socket.user;
+      if (!user) {
+        if (typeof callback === 'function') return callback({ success: false, error: 'Unauthenticated socket.' });
+        return;
       }
-    }
 
-    if (typeof callback === 'function') {
-      callback({
-        success: true,
-        callId: callState.callId,
-        participants: existingParticipants,
+      // Step 6 & 7: Verify caller is an authorized member
+      const membership = await groupRepository.findMember(groupId, user.id);
+      if (!membership) {
+        console.warn(`[Call:join] Unauthorized join attempt: User ${user.id} is not a member of group ${groupId}`);
+        if (typeof callback === 'function') return callback({ success: false, error: 'Unauthorized: You are not a member of this group.' });
+        return;
+      }
+
+      let callState = activeCalls.get(groupId);
+
+      if (!callState) {
+        // Create if joining directly
+        const callId = 'cal_' + Date.now();
+        await callRepository.create({
+          id: callId,
+          groupId,
+          initiatedBy: user.id,
+          callType: 'video',
+        });
+        callState = {
+          callId,
+          groupId,
+          callType: 'video',
+          initiator: user,
+          startedAt: new Date().toISOString(),
+          participants: new Map(),
+        };
+        activeCalls.set(groupId, callState);
+      }
+
+      // Update call status to 'active' once multiple participants join
+      try {
+        await callRepository.updateStatus(callState.callId, 'active');
+      } catch (dbErr) {
+        console.warn('[Call:join] DB status update warning:', dbErr.message);
+      }
+
+      // Add participant
+      callState.participants.set(socket.id, {
+        socketId: socket.id,
+        user,
+        isMuted,
+        isCameraOff,
       });
+
+      console.log(`[Call:join] User ${user.name} (${socket.id}) joined call ${callState.callId} in group ${groupId}. Total participants: ${callState.participants.size}`);
+
+      // Notify others in call
+      socket.to(`group_${groupId}`).emit('call:peer-joined', {
+        socketId: socket.id,
+        user,
+        isMuted,
+        isCameraOff,
+      });
+
+      // Return current participants to caller
+      const existingParticipants = [];
+      for (const [sId, p] of callState.participants.entries()) {
+        if (sId !== socket.id) {
+          existingParticipants.push(p);
+        }
+      }
+
+      if (typeof callback === 'function') {
+        callback({
+          success: true,
+          callId: callState.callId,
+          participants: existingParticipants,
+        });
+      }
+    } catch (err) {
+      console.error('[Call:join] Error:', err);
+      if (typeof callback === 'function') callback({ success: false, error: err.message });
     }
   });
 
@@ -150,7 +225,19 @@ function setupCallSignaler(io, socket) {
     }
   });
 
-  // 7. Leave Call
+  // 7. Decline Call
+  socket.on('call:decline', ({ groupId, callId }) => {
+    const user = socket.user;
+    console.log(`[Call:decline] User ${user?.name} (${user?.id}) declined call ${callId} in group ${groupId}`);
+    socket.to(`group_${groupId}`).emit('call:declined', {
+      groupId,
+      callId,
+      userId: user?.id,
+      userName: user?.name,
+    });
+  });
+
+  // 8. Leave Call
   socket.on('call:leave', async ({ groupId }) => {
     handleCallLeave(io, socket, groupId);
   });

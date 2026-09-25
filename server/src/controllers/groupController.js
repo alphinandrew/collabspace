@@ -76,6 +76,11 @@ class GroupController {
         width: 320
       });
 
+      const io = req.app.get('io');
+      if (io) {
+        io.in(`user_${ownerId}`).socketsJoin(`group_${groupId}`);
+      }
+
       return res.status(201).json({
         message: 'Group created successfully.',
         group,
@@ -165,6 +170,12 @@ class GroupController {
       });
 
       const updatedGroup = await groupRepository.findById(group.id);
+
+      const io = req.app.get('io');
+      if (io) {
+        io.in(`user_${userId}`).socketsJoin(`group_${group.id}`);
+      }
+
       return res.json({
         message: 'Successfully joined group.',
         group: updatedGroup,
@@ -228,6 +239,12 @@ class GroupController {
       await invitationRepository.incrementUsage(invite.id);
 
       const updatedGroup = await groupRepository.findById(group.id);
+
+      const io = req.app.get('io');
+      if (io) {
+        io.in(`user_${userId}`).socketsJoin(`group_${group.id}`);
+      }
+
       return res.json({
         message: 'Successfully joined group via QR invitation.',
         group: updatedGroup,

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import { useGroup } from './GroupContext';
@@ -17,6 +17,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+
+  const activeGroupRef = useRef(activeGroup);
+  useEffect(() => {
+    activeGroupRef.current = activeGroup;
+  }, [activeGroup]);
 
   useEffect(() => {
     if (!token || !user) {
@@ -37,6 +42,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     newSocket.on('connect', () => {
       setIsConnected(true);
+      if (activeGroupRef.current) {
+        newSocket.emit('group:join', { groupId: activeGroupRef.current.id });
+      }
     });
 
     newSocket.on('disconnect', () => {
@@ -71,10 +79,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     if (socket && isConnected && activeGroup) {
       socket.emit('group:join', { groupId: activeGroup.id });
-
-      return () => {
-        socket.emit('group:leave', { groupId: activeGroup.id });
-      };
     }
   }, [socket, isConnected, activeGroup?.id]);
 

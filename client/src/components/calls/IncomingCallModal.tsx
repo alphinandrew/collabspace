@@ -19,7 +19,12 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
   if (!incomingCall) return null;
 
   return (
-    <Modal isOpen={!!incomingCall} onClose={onDecline} title="Incoming Team Call" maxWidth="400px">
+    <Modal
+      isOpen={!!incomingCall}
+      onClose={onDecline}
+      title={incomingCall.callType === 'video' ? 'Incoming Video Call' : 'Incoming Voice Call'}
+      maxWidth="400px"
+    >
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '20px' }}>
         <div style={{ position: 'relative' }}>
           <Avatar name={incomingCall.initiator.name} src={incomingCall.initiator.avatar} size="xl" />
@@ -45,10 +50,10 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
 
         <div>
           <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-            {incomingCall.initiator.name}
+            {incomingCall.initiator.name} is calling
           </h3>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            is inviting you to a {incomingCall.callType} call...
+            {incomingCall.groupName ? `in #${incomingCall.groupName}` : `Group ${incomingCall.callType} call`}
           </p>
         </div>
 
