@@ -144,6 +144,18 @@ function setupCallSignaler(io, socket) {
         console.warn('[Call:join] DB status update warning:', dbErr.message);
       }
 
+      // Remove any older stale sockets for the SAME user (e.g. from page refresh or network change)
+      for (const [sId, p] of callState.participants.entries()) {
+        if (sId !== socket.id && p.user && p.user.id === user.id) {
+          console.log(`[Call:join] Pruning older session socket ${sId} for user ${user.name}`);
+          callState.participants.delete(sId);
+          socket.to(`group_${groupId}`).emit('call:peer-left', {
+            socketId: sId,
+            userId: user.id,
+          });
+        }
+      }
+
       // Add participant
       callState.participants.set(socket.id, {
         socketId: socket.id,
@@ -162,11 +174,17 @@ function setupCallSignaler(io, socket) {
         isCameraOff,
       });
 
-      // Return current participants to caller
+      // Return current participants to caller (only connected remote peers, never self)
       const existingParticipants = [];
       for (const [sId, p] of callState.participants.entries()) {
-        if (sId !== socket.id) {
-          existingParticipants.push(p);
+        if (sId !== socket.id && p.user && p.user.id !== user.id) {
+          const remoteSocket = io.sockets.sockets.get(sId);
+          if (remoteSocket && remoteSocket.connected) {
+            existingParticipants.push(p);
+          } else {
+            // Stale or disconnected socket: prune
+            callState.participants.delete(sId);
+          }
         }
       }
 

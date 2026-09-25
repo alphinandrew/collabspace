@@ -128,6 +128,7 @@ export const CallOverlay: React.FC = () => {
     toggleMute,
     toggleCamera,
     toggleScreenShare,
+    retryCall,
   } = useCall();
   const { user } = useAuth();
 
@@ -182,8 +183,10 @@ export const CallOverlay: React.FC = () => {
               color:
                 callStatus === 'connected'
                   ? 'var(--success)'
-                  : callStatus === 'ringing'
+                  : callStatus === 'ringing' || (participantsList.length === 0 && callStatus !== 'failed')
                   ? 'var(--warning)'
+                  : callStatus === 'failed'
+                  ? 'var(--danger)'
                   : 'var(--text-muted)',
               fontWeight: 500,
               display: 'flex',
@@ -192,7 +195,9 @@ export const CallOverlay: React.FC = () => {
             }}
           >
             {callStatus === 'connecting' && <Loader2 size={14} className="animate-spin" />}
-            Status: {callStatus.toUpperCase()}
+            Status: {participantsList.length === 0 && (callStatus === 'ringing' || callStatus === 'connecting')
+              ? 'WAITING FOR MEMBERS'
+              : callStatus.toUpperCase()}
           </span>
         </div>
 
@@ -201,7 +206,7 @@ export const CallOverlay: React.FC = () => {
         </div>
       </div>
 
-      {/* Error alert banner */}
+      {/* Error alert banner with retry action */}
       {errorMessage && (
         <div
           style={{
@@ -211,11 +216,31 @@ export const CallOverlay: React.FC = () => {
             fontSize: '0.85rem',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
+            justifyContent: 'space-between',
+            gap: '12px',
           }}
         >
-          <AlertCircle size={16} />
-          <span>{errorMessage}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertCircle size={16} />
+            <span>{errorMessage}</span>
+          </div>
+          <button
+            onClick={retryCall}
+            style={{
+              padding: '4px 14px',
+              backgroundColor: 'var(--brand-primary)',
+              color: '#FFFFFF',
+              border: 'none',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            }}
+          >
+            Retry Connection
+          </button>
         </div>
       )}
 

@@ -43,7 +43,36 @@ interface CallContextType {
   toggleMute: () => void;
   toggleCamera: () => void;
   toggleScreenShare: () => Promise<void>;
+  retryCall: () => Promise<void>;
 }
+
+const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
+  {
+    urls: [
+      'stun:stun.l.google.com:19302',
+      'stun:stun1.l.google.com:19302',
+      'stun:stun2.l.google.com:19302',
+      'stun:stun3.l.google.com:19302',
+      'stun:stun4.l.google.com:19302',
+    ],
+  },
+  { urls: 'stun:stun.relay.metered.ca:80' },
+  {
+    urls: 'turn:standard.relay.metered.ca:80',
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
+  },
+  {
+    urls: 'turn:standard.relay.metered.ca:443',
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
+  },
+  {
+    urls: 'turn:standard.relay.metered.ca:443?transport=tcp',
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
+  },
+];
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
 
@@ -66,7 +95,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // PeerConnections: socketId -> RTCPeerConnection
   const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
-  const iceServersRef = useRef<RTCIceServer[]>([{ urls: 'stun:stun.l.google.com:19302' }]);
+  const iceServersRef = useRef<RTCIceServer[]>(DEFAULT_ICE_SERVERS);
   const cameraTrackRef = useRef<MediaStreamTrack | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -146,6 +175,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const createPeerConnection = (targetSocketId: string, stream: MediaStream): RTCPeerConnection => {
     const pc = new RTCPeerConnection({
       iceServers: iceServersRef.current,
+      iceCandidatePoolSize: 10,
+      bundlePolicy: 'max-bundle',
+      rtcpMuxPolicy: 'require',
     });
 
     // Add local tracks to peer connection
@@ -177,15 +209,30 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     // Connection state logging & state machine synchronization
-    pc.onconnectionstatechange = () => {
+    pc.onconnectionstatechange = async () => {
       console.log(`[WebRTC] Peer ${targetSocketId} connectionState: ${pc.connectionState}`);
       if (pc.connectionState === 'connected') {
         setCallStatus('connected');
+        setErrorMessage(null);
       } else if (pc.connectionState === 'failed') {
+        // Attempt automatic ICE restart with this peer before declaring failure
+        try {
+          console.warn(`[WebRTC] Peer ${targetSocketId} failed. Attempting ICE restart...`);
+          if (pc.restartIce) {
+            pc.restartIce();
+          }
+          const restartOffer = await pc.createOffer({ iceRestart: true });
+          await pc.setLocalDescription(restartOffer);
+          socket?.emit('call:offer', { targetSocketId, offer: restartOffer });
+        } catch (restartErr) {
+          console.warn('[WebRTC] ICE restart attempt note:', restartErr);
+        }
+
+        // Only declare failure if there are active remote peers and all are failed
         const anyConnected = Array.from(peerConnections.current.values()).some(
           (p) => p.connectionState === 'connected'
         );
-        if (!anyConnected) {
+        if (!anyConnected && remoteParticipants.size > 0) {
           setErrorMessage('Peer connection failed. Direct network connectivity could not be established.');
           setCallStatus('failed');
         }
@@ -196,6 +243,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     pc.oniceconnectionstatechange = () => {
       console.log(`[WebRTC] Peer ${targetSocketId} iceConnectionState: ${pc.iceConnectionState}`);
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        setCallStatus('connected');
+        setErrorMessage(null);
+      }
     };
 
     peerConnections.current.set(targetSocketId, pc);
@@ -324,7 +375,24 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setActiveGroupId(null);
     setCallStatus('idle');
     setIsScreenSharing(false);
+    setErrorMessage(null);
   }, [socket, activeGroupId, localStream]);
+
+  // Reconnect / Retry current call
+  const retryCall = async () => {
+    if (!activeGroupId || !socket) return;
+    setErrorMessage(null);
+    setCallStatus('connecting');
+
+    // Close and clear existing peer connections
+    for (const [, pc] of peerConnections.current.entries()) {
+      try { pc.close(); } catch {}
+    }
+    peerConnections.current.clear();
+    iceCandidatesQueue.current.clear();
+
+    await joinCall(activeGroupId);
+  };
 
   // Toggle Mute
   const toggleMute = () => {
@@ -624,6 +692,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setRemoteParticipants((prev) => {
         const next = new Map(prev);
         next.delete(socketId);
+        // If no remote peers left, clear error and switch status to waiting
+        if (next.size === 0) {
+          setErrorMessage(null);
+          setCallStatus('ringing');
+        }
         return next;
       });
     };
@@ -689,6 +762,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toggleMute,
         toggleCamera,
         toggleScreenShare,
+        retryCall,
       }}
     >
       {children}

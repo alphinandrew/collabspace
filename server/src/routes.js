@@ -14,17 +14,53 @@ const { requireGroupMember, requireGroupAdmin } = require('./middleware/permissi
 const upload = require('./middleware/upload');
 
 // Public WebRTC configuration endpoint
+// Public WebRTC configuration endpoint
 router.get('/config/webrtc', (req, res) => {
-  const iceServers = [
-    { urls: config.webrtc.stunUrl }
-  ];
+  const iceServers = [];
 
+  // 1. Custom TURN server if configured in environment
   if (config.webrtc.turnUrl) {
-    const turnServer = { urls: config.webrtc.turnUrl };
-    if (config.webrtc.turnUsername) turnServer.username = config.webrtc.turnUsername;
-    if (config.webrtc.turnCredential) turnServer.credential = config.webrtc.turnCredential;
-    iceServers.push(turnServer);
+    const customTurn = { urls: config.webrtc.turnUrl };
+    if (config.webrtc.turnUsername) customTurn.username = config.webrtc.turnUsername;
+    if (config.webrtc.turnCredential) customTurn.credential = config.webrtc.turnCredential;
+    iceServers.push(customTurn);
   }
+
+  // 2. High-availability Google & Metered STUN servers
+  iceServers.push(
+    {
+      urls: [
+        'stun:stun.l.google.com:19302',
+        'stun:stun1.l.google.com:19302',
+        'stun:stun2.l.google.com:19302',
+        'stun:stun3.l.google.com:19302',
+        'stun:stun4.l.google.com:19302',
+      ],
+    },
+    {
+      urls: 'stun:stun.relay.metered.ca:80',
+    }
+  );
+
+  // 3. Fallback TURN relay servers (OpenRelay / Metered free relay for NAT & firewall traversal)
+  // Ensures calls succeed across mobile hotspot (Realme/CGNAT), cellular data, VPNs, and strict firewalls
+  iceServers.push(
+    {
+      urls: 'turn:standard.relay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:standard.relay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:standard.relay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    }
+  );
 
   res.json({ iceServers });
 });
