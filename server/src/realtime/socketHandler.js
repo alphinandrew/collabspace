@@ -103,11 +103,13 @@ function initSocketIO(io) {
 
     // Typing indicators
     socket.on('chat:typing', ({ groupId, isTyping }) => {
+      if (!groupId) return;
       socket.to(`group_${groupId}`).emit('chat:typing', {
         groupId,
         userId: socket.user.id,
         userName: socket.user.name,
-        isTyping,
+        userAvatar: socket.user.avatar || null,
+        isTyping: Boolean(isTyping),
       });
     });
 

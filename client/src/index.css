@@ -169,3 +169,58 @@ button, input, textarea, select {
   animation: shimmer 1.5s ease infinite;
   border-radius: var(--radius-sm);
 }
+
+/* Typing Indicator Wave Animation */
+@keyframes typingWave {
+  0%, 60%, 100% {
+    transform: translateY(0) scale(0.85);
+    opacity: 0.4;
+    background-color: var(--text-muted);
+  }
+  30% {
+    transform: translateY(-5px) scale(1.15);
+    opacity: 1;
+    background-color: #818CF8;
+    box-shadow: 0 0 8px rgba(99, 102, 241, 0.7);
+  }
+}
+
+.typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.typing-dot.dot-1 {
+  animation: typingWave 1.4s infinite ease-in-out 0s;
+}
+
+.typing-dot.dot-2 {
+  animation: typingWave 1.4s infinite ease-in-out 0.2s;
+}
+
+.typing-dot.dot-3 {
+  animation: typingWave 1.4s infinite ease-in-out 0.4s;
+}
+
+.typing-indicator-pill {
+  animation: slideUp 0.2s ease-out forwards;
+}
+
+@starting-style {
+  .typing-indicator-pill {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing-dot.dot-1,
+  .typing-dot.dot-2,
+  .typing-dot.dot-3 {
+    animation: none;
+    opacity: 0.8;
+  }
+}
+

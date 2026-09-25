@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useRef } from 'r
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import { useGroup } from './GroupContext';
+import { appBadgeService } from '../services/appBadge';
 
 interface SocketContextType {
   socket: Socket | null;
@@ -66,6 +67,23 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
         return next;
       });
+    });
+
+    // Initialize unread app badging and request desktop notification permission
+    appBadgeService.init();
+    appBadgeService.requestNotificationPermission().catch(() => {});
+
+    // Listen for incoming messages to trigger app icon notification when user is outside tab
+    newSocket.on('chat:message', (message: any) => {
+      if (message && message.sender_id !== user.id) {
+        if (document.hidden || !document.hasFocus()) {
+          appBadgeService.incrementUnread({
+            senderName: message.sender_name,
+            content: message.message_type === 'file' ? '📎 Shared an attachment' : message.content,
+            groupName: activeGroupRef.current?.name,
+          });
+        }
+      }
     });
 
     setSocket(newSocket);

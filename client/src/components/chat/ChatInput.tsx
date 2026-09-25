@@ -1,6 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Paperclip, Send, X, AlertCircle, RotateCcw } from 'lucide-react';
 import { api } from '../../services/api';
+import { useSocket } from '../../context/SocketContext';
 
 interface ChatInputProps {
   groupId: string;
@@ -15,6 +16,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onFileUploaded,
   disabled = false,
 }) => {
+  const { socket } = useSocket();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -23,11 +25,57 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const isSendingRef = useRef(false);
+  const isTypingRef = useRef(false);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up typing indicator on unmount or workspace switch
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      if (isTypingRef.current && socket) {
+        socket.emit('chat:typing', { groupId, isTyping: false });
+        isTypingRef.current = false;
+      }
+    };
+  }, [groupId, socket]);
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setText(val);
+
+    if (!socket || !groupId) return;
+
+    if (!isTypingRef.current && val.trim().length > 0) {
+      isTypingRef.current = true;
+      socket.emit('chat:typing', { groupId, isTyping: true });
+    }
+
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current);
+    }
+
+    if (val.trim().length > 0) {
+      typingTimerRef.current = setTimeout(() => {
+        isTypingRef.current = false;
+        socket.emit('chat:typing', { groupId, isTyping: false });
+      }, 1800);
+    } else {
+      isTypingRef.current = false;
+      socket.emit('chat:typing', { groupId, isTyping: false });
+    }
+  };
 
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const content = text.trim();
     if (!content || sending || isSendingRef.current) return;
+
+    // Immediately stop typing indicator
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    if (isTypingRef.current && socket) {
+      isTypingRef.current = false;
+      socket.emit('chat:typing', { groupId, isTyping: false });
+    }
 
     isSendingRef.current = true;
     setText('');
@@ -220,7 +268,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           placeholder="Message workspace..."
           value={text}
           disabled={disabled}
-          onChange={(e) => setText(e.target.value)}
+          onChange={handleTextChange}
           onKeyDown={handleKeyDown}
           style={{
             flex: 1,

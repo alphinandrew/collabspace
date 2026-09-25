@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Avatar } from '../common/Avatar';
 import { MessageItem } from './MessageItem';
 import { ChatInput } from './ChatInput';
+import { TypingIndicator, TypingUserInfo } from './TypingIndicator';
 import { Group, Message, Member, api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
@@ -28,7 +29,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [typingUsers, setTypingUsers] = useState<TypingUserInfo[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -61,7 +62,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, typingUsers.length]);
 
   const handleScroll = () => {
     if (!scrollContainerRef.current) return;
@@ -75,6 +76,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
     const handleIncomingMessage = (newMsg: Message) => {
       if (newMsg.group_id === group.id) {
+        // Clear typing indicator for this sender immediately
+        setTypingUsers((prev) => prev.filter((u) => u.userId !== newMsg.sender_id));
+
         setMessages((prev) => {
           // 1. Avoid duplicate messages if this exact ID already exists
           if (prev.some((m) => m.id === newMsg.id)) {
@@ -101,14 +105,19 @@ export const ChatView: React.FC<ChatViewProps> = ({
       }
     };
 
-    const handleTyping = ({ groupId, userName, isTyping }: any) => {
-      if (groupId === group.id) {
+    const handleTyping = ({ groupId: incomingGroupId, userId, userName, userAvatar, isTyping }: any) => {
+      if (incomingGroupId === group.id && userId !== user?.id) {
         setTypingUsers((prev) => {
           if (isTyping) {
-            if (!prev.includes(userName)) return [...prev, userName];
-            return prev;
+            const existingIdx = prev.findIndex((u) => u.userId === userId);
+            if (existingIdx !== -1) {
+              const next = [...prev];
+              next[existingIdx] = { userId, userName, userAvatar, lastActive: Date.now() };
+              return next;
+            }
+            return [...prev, { userId, userName, userAvatar, lastActive: Date.now() }];
           } else {
-            return prev.filter((u) => u !== userName);
+            return prev.filter((u) => u.userId !== userId);
           }
         });
       }
@@ -117,11 +126,21 @@ export const ChatView: React.FC<ChatViewProps> = ({
     socket.on('chat:message', handleIncomingMessage);
     socket.on('chat:typing', handleTyping);
 
+    // Stale typing sweep timer (cleans up if a user disconnected while typing)
+    const cleanupTimer = setInterval(() => {
+      const now = Date.now();
+      setTypingUsers((prev) => {
+        const active = prev.filter((u) => now - u.lastActive < 3500);
+        return active.length === prev.length ? prev : active;
+      });
+    }, 1000);
+
     return () => {
       socket.off('chat:message', handleIncomingMessage);
       socket.off('chat:typing', handleTyping);
+      clearInterval(cleanupTimer);
     };
-  }, [socket, group.id]);
+  }, [socket, group.id, user?.id]);
 
   const handleSendMessage = async (content: string) => {
     if (!user) return;
@@ -405,12 +424,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
           ))
         )}
 
-        {/* Typing Indicator */}
-        {typingUsers.length > 0 && (
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', paddingLeft: '44px' }}>
-            {typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing...
-          </div>
-        )}
+        {/* Animated Typing Indicator */}
+        {typingUsers.length > 0 && <TypingIndicator users={typingUsers} />}
 
         <div ref={messagesEndRef} />
       </div>
