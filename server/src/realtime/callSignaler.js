@@ -1,10 +1,51 @@
 const callRepository = require('../db/repositories/callRepository');
 const groupRepository = require('../db/repositories/groupRepository');
+const { getDatabase } = require('../db/database');
 
 // Map to track active in-memory call state: groupId -> CallState
 const activeCalls = new Map();
 
+function getActiveCallSummary(groupId) {
+  const callState = activeCalls.get(groupId);
+  if (!callState || callState.participants.size === 0) {
+    return { active: false, groupId };
+  }
+
+  const participants = Array.from(callState.participants.values()).map((p) => ({
+    userId: p.user?.id,
+    userName: p.user?.name,
+    userAvatar: p.user?.avatar,
+    isMuted: p.isMuted,
+    isCameraOff: p.isCameraOff,
+    isScreenSharing: p.isScreenSharing,
+  }));
+
+  return {
+    active: true,
+    callId: callState.callId,
+    groupId,
+    groupName: callState.groupName,
+    callType: callState.callType,
+    initiator: callState.initiator,
+    startedAt: callState.startedAt,
+    participantCount: callState.participants.size,
+    participants,
+  };
+}
+
+function broadcastActiveCallState(io, groupId) {
+  if (!io || !groupId) return;
+  const summary = getActiveCallSummary(groupId);
+  io.to(`group_${groupId}`).emit('call:active', summary);
+}
+
 function setupCallSignaler(io, socket) {
+  // 0. Query active call state for a group
+  socket.on('call:get_active', ({ groupId }, callback) => {
+    const summary = getActiveCallSummary(groupId);
+    if (typeof callback === 'function') callback(summary);
+  });
+
   // 1. Initiate Call
   socket.on('call:initiate', async ({ groupId, callType = 'video' }, callback) => {
     try {
@@ -14,7 +55,7 @@ function setupCallSignaler(io, socket) {
         return;
       }
 
-      // Step 6 & 7: Verify caller is an authorized member of this group
+      // Verify caller is an authorized member of this group
       const membership = await groupRepository.findMember(groupId, user.id);
       if (!membership) {
         console.warn(`[Call:initiate] Unauthorized attempt: User ${user.id} is not a member of group ${groupId}`);
@@ -50,9 +91,11 @@ function setupCallSignaler(io, socket) {
           participants: new Map(), // socketId -> { user, isMuted, isCameraOff }
         };
         activeCalls.set(groupId, callState);
+      } else {
+        console.log(`[Call:initiate] Group ${groupId} already has active call ${callState.callId}. Joining existing.`);
       }
 
-      // Add initiator as first participant
+      // Add initiator as participant
       callState.participants.set(socket.id, {
         socketId: socket.id,
         user,
@@ -60,12 +103,24 @@ function setupCallSignaler(io, socket) {
         isCameraOff: false,
       });
 
+      // Record in call_participants table
+      try {
+        const db = await getDatabase();
+        const cpId = 'cp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+        await db.run(
+          `INSERT INTO call_participants (id, call_id, user_id, socket_id, joined_at, status)
+           VALUES (?, ?, ?, ?, ?, 'joined')`,
+          [cpId, callState.callId, user.id, socket.id, new Date().toISOString()]
+        );
+      } catch (cpErr) {
+        console.warn('[Call:initiate] DB participant record note:', cpErr.message);
+      }
+
       // Retrieve all authorized members of this group
       const groupMembers = await groupRepository.listMembers(groupId);
       const recipientMembers = groupMembers.filter((m) => m.id !== user.id);
 
       console.log(`[Call:initiate] Caller: ${user.name} (${user.id}) | Socket: ${socket.id} | Group: ${groupId} ("${group.name}") | CallId: ${callState.callId}`);
-      console.log(`[Call:routing] Routing call:incoming to ${recipientMembers.length} authorized member(s): ${recipientMembers.map((m) => `${m.name} (${m.id})`).join(', ')}`);
 
       const incomingPayload = {
         groupId,
@@ -81,13 +136,13 @@ function setupCallSignaler(io, socket) {
       };
 
       // Route incoming-call event ONLY to authorized group members
-      // 1. To group room (excluding the caller socket)
       socket.to(`group_${groupId}`).emit('call:incoming', incomingPayload);
-
-      // 2. To user-specific rooms of authorized group members
       for (const member of recipientMembers) {
         io.to(`user_${member.id}`).emit('call:incoming', incomingPayload);
       }
+
+      // Broadcast active call banner state to entire group room
+      broadcastActiveCallState(io, groupId);
 
       if (typeof callback === 'function') {
         callback({ success: true, callId: callState.callId });
@@ -98,7 +153,7 @@ function setupCallSignaler(io, socket) {
     }
   });
 
-  // 2. Join Call
+  // 2. Join Call (Late Joiner or Ringing Answer)
   socket.on('call:join', async ({ groupId, isMuted = false, isCameraOff = false }, callback) => {
     try {
       const user = socket.user;
@@ -107,7 +162,7 @@ function setupCallSignaler(io, socket) {
         return;
       }
 
-      // Step 6 & 7: Verify caller is an authorized member
+      // Verify caller is an authorized member
       const membership = await groupRepository.findMember(groupId, user.id);
       if (!membership) {
         console.warn(`[Call:join] Unauthorized join attempt: User ${user.id} is not a member of group ${groupId}`);
@@ -156,13 +211,26 @@ function setupCallSignaler(io, socket) {
         }
       }
 
-      // Add participant
+      // Add participant to call state
       callState.participants.set(socket.id, {
         socketId: socket.id,
         user,
         isMuted,
         isCameraOff,
       });
+
+      // Record in call_participants table
+      try {
+        const db = await getDatabase();
+        const cpId = 'cp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+        await db.run(
+          `INSERT INTO call_participants (id, call_id, user_id, socket_id, joined_at, status)
+           VALUES (?, ?, ?, ?, ?, 'joined')`,
+          [cpId, callState.callId, user.id, socket.id, new Date().toISOString()]
+        );
+      } catch (cpErr) {
+        console.warn('[Call:join] DB participant record note:', cpErr.message);
+      }
 
       console.log(`[Call:join] User ${user.name} (${socket.id}) joined call ${callState.callId} in group ${groupId}. Total participants: ${callState.participants.size}`);
 
@@ -173,6 +241,9 @@ function setupCallSignaler(io, socket) {
         isMuted,
         isCameraOff,
       });
+
+      // Broadcast active call banner update to all group members
+      broadcastActiveCallState(io, groupId);
 
       // Return current participants to caller (only connected remote peers, never self)
       const existingParticipants = [];
@@ -192,6 +263,7 @@ function setupCallSignaler(io, socket) {
         callback({
           success: true,
           callId: callState.callId,
+          callType: callState.callType,
           participants: existingParticipants,
         });
       }
@@ -240,6 +312,7 @@ function setupCallSignaler(io, socket) {
         isCameraOff: p.isCameraOff,
         isScreenSharing: p.isScreenSharing,
       });
+      broadcastActiveCallState(io, groupId);
     }
   });
 
@@ -268,6 +341,20 @@ async function handleCallLeave(io, socket, groupId) {
   if (callState.participants.has(socket.id)) {
     callState.participants.delete(socket.id);
 
+    // Update DB call_participants status
+    try {
+      const db = await getDatabase();
+      const userId = socket.user ? socket.user.id : null;
+      if (userId) {
+        await db.run(
+          `UPDATE call_participants SET status = 'left', left_at = ? WHERE call_id = ? AND user_id = ? AND status = 'joined'`,
+          [new Date().toISOString(), callState.callId, userId]
+        );
+      }
+    } catch (cpErr) {
+      console.warn('[Call:leave] DB update note:', cpErr.message);
+    }
+
     // Broadcast peer left
     socket.to(`group_${groupId}`).emit('call:peer-left', {
       socketId: socket.id,
@@ -288,6 +375,9 @@ async function handleCallLeave(io, socket, groupId) {
         console.error('Error ending call in DB:', err);
       }
     }
+
+    // Broadcast updated active call state (or active: false)
+    broadcastActiveCallState(io, groupId);
   }
 }
 
@@ -303,5 +393,8 @@ function handleSocketDisconnect(io, socket) {
 module.exports = {
   setupCallSignaler,
   handleSocketDisconnect,
+  handleCallLeave,
+  getActiveCallSummary,
+  broadcastActiveCallState,
   activeCalls,
 };

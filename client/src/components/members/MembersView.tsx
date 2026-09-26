@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { Avatar } from '../common/Avatar';
 import { Badge } from '../common/Badge';
 import { Button } from '../common/Button';
+import { DeleteGroupModal } from '../common/DeleteGroupModal';
 import { Group, Member, api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useGroup } from '../../context/GroupContext';
-import { Shield, ShieldCheck, UserX, MoreVertical, Crown } from 'lucide-react';
+import { Shield, ShieldCheck, UserX, MoreVertical, Crown, Trash2, X } from 'lucide-react';
 
 interface MembersViewProps {
   group: Group;
@@ -16,6 +17,9 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
   const { activeMembers, refreshActiveGroupMembers } = useGroup();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
+  const [removingMember, setRemovingMember] = useState(false);
+  const [isDeleteGroupOpen, setIsDeleteGroupOpen] = useState(false);
 
   // Determine current user's role in this group
   const currentUserMembership = activeMembers.find((m) => m.id === user?.id);
@@ -33,18 +37,19 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
     }
   };
 
-  const handleRemoveMember = async (memberId: string) => {
+  const confirmRemoveMember = async () => {
+    if (!memberToRemove) return;
+    setRemovingMember(true);
     setActionError(null);
-    if (!window.confirm('Are you sure you want to remove this member from the workspace group?')) {
-      return;
-    }
 
     try {
-      await api.removeMember(group.id, memberId);
+      await api.removeMember(group.id, memberToRemove.id);
       refreshActiveGroupMembers();
-      setSelectedUserId(null);
+      setMemberToRemove(null);
     } catch (err: any) {
       setActionError(err.message || 'Failed to remove member.');
+    } finally {
+      setRemovingMember(false);
     }
   };
 
@@ -99,7 +104,11 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
       <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {activeMembers.map((member) => {
           const isSelf = member.id === user?.id;
-          const canManage = isAdmin && !isSelf && member.role !== 'owner';
+          // Owner can remove admins and members. Admin can only remove normal members.
+          const canManage =
+            !isSelf &&
+            member.role !== 'owner' &&
+            (isOwner || (isAdmin && member.role === 'member'));
 
           return (
             <div
@@ -155,7 +164,7 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
                   )}
                 </Badge>
 
-                {/* Management Action Menu for Admins */}
+                {/* Management Action Menu */}
                 {canManage && (
                   <div style={{ position: 'relative' }}>
                     <button
@@ -190,7 +199,7 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
                           zIndex: 100,
                         }}
                       >
-                        {member.role === 'member' ? (
+                        {isOwner && member.role === 'member' && (
                           <button
                             onClick={() => handleRoleChange(member.id, 'admin')}
                             style={{
@@ -210,7 +219,9 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
                             <Shield size={14} color="var(--warning)" />
                             Promote to Admin
                           </button>
-                        ) : (
+                        )}
+
+                        {isOwner && member.role === 'admin' && (
                           <button
                             onClick={() => handleRoleChange(member.id, 'member')}
                             style={{
@@ -233,7 +244,10 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
                         )}
 
                         <button
-                          onClick={() => handleRemoveMember(member.id)}
+                          onClick={() => {
+                            setMemberToRemove(member);
+                            setSelectedUserId(null);
+                          }}
                           style={{
                             width: '100%',
                             display: 'flex',
@@ -249,7 +263,7 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
                           }}
                         >
                           <UserX size={14} />
-                          Remove Member
+                          Remove from group
                         </button>
                       </div>
                     )}
@@ -260,6 +274,140 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
           );
         })}
       </div>
+
+      {/* Danger Zone: Delete Group (Feature 5) */}
+      {isAdmin && (
+        <div
+          style={{
+            marginTop: 'auto',
+            margin: '24px',
+            padding: '20px',
+            backgroundColor: 'var(--bg-surface)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+            borderRadius: 'var(--radius-lg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: 'var(--shadow-sm)',
+          }}
+        >
+          <div>
+            <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--danger)' }}>
+              Danger Zone: Delete Workspace
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Permanently delete this workspace, active calls, and associated records.
+            </div>
+          </div>
+
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => setIsDeleteGroupOpen(true)}
+            icon={<Trash2 size={14} />}
+          >
+            Delete Workspace
+          </Button>
+        </div>
+      )}
+
+      {/* Member Removal Confirmation Dialog (Feature 4.2) */}
+      {memberToRemove && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1200,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={() => setMemberToRemove(null)}
+        >
+          <div
+            className="animate-slide-up"
+            style={{
+              width: '100%',
+              maxWidth: '440px',
+              backgroundColor: 'var(--bg-surface)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--border-subtle)',
+              boxShadow: 'var(--shadow-xl)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border-subtle)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <UserX size={18} color="var(--danger)" />
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  Remove {memberToRemove.name} from this group?
+                </h3>
+              </div>
+              <button
+                onClick={() => setMemberToRemove(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  borderRadius: 'var(--radius-sm)',
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '20px', fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              <strong>{memberToRemove.name}</strong> will lose access to this group's messages, files, and calls.
+            </div>
+
+            <div
+              style={{
+                padding: '14px 20px',
+                borderTop: '1px solid var(--border-subtle)',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '10px',
+                backgroundColor: 'var(--bg-surface-elevated)',
+              }}
+            >
+              <Button variant="ghost" size="sm" onClick={() => setMemberToRemove(null)} disabled={removingMember}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={confirmRemoveMember}
+                loading={removingMember}
+              >
+                Remove Member
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Group Modal (Feature 5) */}
+      <DeleteGroupModal
+        isOpen={isDeleteGroupOpen}
+        onClose={() => setIsDeleteGroupOpen(false)}
+        group={group}
+      />
     </div>
   );
 };

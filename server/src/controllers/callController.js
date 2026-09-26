@@ -8,7 +8,13 @@ class CallController {
       const { callType = 'video' } = req.body;
       const initiatedBy = req.user.id;
 
-      // Check if there is already an active call in this group
+      // Check in-memory or database active call
+      const { getActiveCallSummary } = require('../realtime/callSignaler');
+      const summary = getActiveCallSummary(groupId);
+      if (summary && summary.active) {
+        return res.json({ call: summary, isExisting: true });
+      }
+
       let activeCall = await callRepository.findActiveCall(groupId);
       if (activeCall) {
         return res.json({ call: activeCall, isExisting: true });
@@ -32,8 +38,33 @@ class CallController {
   async getActiveCall(req, res) {
     try {
       const { groupId } = req.params;
+      const { getActiveCallSummary } = require('../realtime/callSignaler');
+      const memoryCall = getActiveCallSummary(groupId);
+      if (memoryCall && memoryCall.active) {
+        return res.json({ call: memoryCall });
+      }
+
       const activeCall = await callRepository.findActiveCall(groupId);
-      return res.json({ call: activeCall || null });
+      if (activeCall) {
+        return res.json({
+          call: {
+            active: true,
+            callId: activeCall.id,
+            groupId: activeCall.group_id,
+            callType: activeCall.call_type,
+            initiator: {
+              id: activeCall.initiated_by,
+              name: activeCall.initiator_name,
+              avatar: activeCall.initiator_avatar,
+            },
+            startedAt: activeCall.started_at,
+            participantCount: 1,
+            participants: [],
+          },
+        });
+      }
+
+      return res.json({ call: null });
     } catch (err) {
       console.error('Get active call error:', err);
       return res.status(500).json({ error: 'Failed to retrieve active call.' });
@@ -45,6 +76,17 @@ class CallController {
       const { groupId, callId } = req.params;
       const now = new Date().toISOString();
       const updated = await callRepository.updateStatus(callId, 'ended', now);
+
+      const { activeCalls, broadcastActiveCallState } = require('../realtime/callSignaler');
+      if (activeCalls.has(groupId)) {
+        activeCalls.delete(groupId);
+        const io = req.app.get('io');
+        if (io) {
+          io.to(`group_${groupId}`).emit('call:ended', { callId, groupId });
+          broadcastActiveCallState(io, groupId);
+        }
+      }
+
       return res.json({ message: 'Call ended.', call: updated });
     } catch (err) {
       console.error('End call error:', err);

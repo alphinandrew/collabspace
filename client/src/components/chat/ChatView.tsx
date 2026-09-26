@@ -3,9 +3,11 @@ import { Avatar } from '../common/Avatar';
 import { MessageItem } from './MessageItem';
 import { ChatInput } from './ChatInput';
 import { TypingIndicator, TypingUserInfo } from './TypingIndicator';
+import { ForwardMessageModal } from './ForwardMessageModal';
 import { Group, Message, Member, api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
+import { useCall } from '../../context/CallContext';
 import { Phone, Video, Info, MessageSquare, AlertCircle } from 'lucide-react';
 
 interface ChatViewProps {
@@ -25,15 +27,23 @@ export const ChatView: React.FC<ChatViewProps> = ({
 }) => {
   const { user } = useAuth();
   const { socket, isConnected } = useSocket();
+  const { joinCall, callStatus } = useCall();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<TypingUserInfo[]>([]);
+  const [activeCallInfo, setActiveCallInfo] = useState<any | null>(null);
+  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const isScrolledToBottomRef = useRef(true);
+
+  // Check user permission in this group
+  const currentUserMembership = members.find((m) => m.id === user?.id);
+  const isAdminOrOwner =
+    currentUserMembership?.role === 'owner' || currentUserMembership?.role === 'admin';
 
   // Load message history from persistent backend database
   const loadMessages = useCallback(async () => {
@@ -52,6 +62,24 @@ export const ChatView: React.FC<ChatViewProps> = ({
   useEffect(() => {
     loadMessages();
   }, [loadMessages]);
+
+  // Check if this group has an active call right now
+  const checkActiveCall = useCallback(async () => {
+    try {
+      const res = await api.getActiveCall(group.id);
+      if (res.call && res.call.active) {
+        setActiveCallInfo(res.call);
+      } else {
+        setActiveCallInfo(null);
+      }
+    } catch (err) {
+      // Ignore
+    }
+  }, [group.id]);
+
+  useEffect(() => {
+    checkActiveCall();
+  }, [checkActiveCall]);
 
   // Handle auto-scroll
   const scrollToBottom = () => {
@@ -80,12 +108,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
         setTypingUsers((prev) => prev.filter((u) => u.userId !== newMsg.sender_id));
 
         setMessages((prev) => {
-          // 1. Avoid duplicate messages if this exact ID already exists
           if (prev.some((m) => m.id === newMsg.id)) {
             return prev;
           }
 
-          // 2. If this is from the current user, check if we have a matching optimistic message waiting
           const tempIdx = prev.findIndex(
             (m) =>
               m.id.startsWith('temp_') &&
@@ -94,7 +120,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
           );
 
           if (tempIdx !== -1) {
-            // Replace the optimistic temp message with the confirmed real message
             const next = [...prev];
             next[tempIdx] = { ...newMsg, status: 'sent' };
             return next;
@@ -102,6 +127,32 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
           return [...prev, newMsg];
         });
+      }
+    };
+
+    const handleReaction = ({ messageId, groupId: rGid, reactions }: any) => {
+      if (rGid === group.id) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? { ...m, reactions } : m))
+        );
+      }
+    };
+
+    const handleMessageDeleted = ({ messageId, groupId: dGid }: any) => {
+      if (dGid === group.id) {
+        setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      }
+    };
+
+    const handleCallActive = (data: any) => {
+      if (data.groupId === group.id) {
+        setActiveCallInfo(data.active ? data : null);
+      }
+    };
+
+    const handleCallEnded = (data: any) => {
+      if (data.groupId === group.id) {
+        setActiveCallInfo(null);
       }
     };
 
@@ -124,9 +175,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
     };
 
     socket.on('chat:message', handleIncomingMessage);
+    socket.on('chat:reaction', handleReaction);
+    socket.on('chat:message_deleted', handleMessageDeleted);
+    socket.on('call:active', handleCallActive);
+    socket.on('call:ended', handleCallEnded);
     socket.on('chat:typing', handleTyping);
 
-    // Stale typing sweep timer (cleans up if a user disconnected while typing)
+    // Stale typing sweep timer
     const cleanupTimer = setInterval(() => {
       const now = Date.now();
       setTypingUsers((prev) => {
@@ -137,6 +192,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
     return () => {
       socket.off('chat:message', handleIncomingMessage);
+      socket.off('chat:reaction', handleReaction);
+      socket.off('chat:message_deleted', handleMessageDeleted);
+      socket.off('call:active', handleCallActive);
+      socket.off('call:ended', handleCallEnded);
       socket.off('chat:typing', handleTyping);
       clearInterval(cleanupTimer);
     };
@@ -145,7 +204,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const handleSendMessage = async (content: string) => {
     if (!user) return;
 
-    // Optimistic message representation
     const tempId = 'temp_' + Date.now();
     const optimisticMsg: Message = {
       id: tempId,
@@ -164,10 +222,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
     try {
       const res = await api.sendMessage(group.id, content);
       setMessages((prev) => {
-        // If the socket already inserted or replaced the real message:
         const alreadyHasReal = prev.some((m) => m.id === res.message.id);
         if (alreadyHasReal) {
-          // Remove the temp message if still present so it doesn't duplicate
           return prev.filter((m) => m.id !== tempId);
         }
         return prev.map((m) => (m.id === tempId ? { ...res.message, status: 'sent' } : m));
@@ -177,6 +233,28 @@ export const ChatView: React.FC<ChatViewProps> = ({
         prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m))
       );
       throw err;
+    }
+  };
+
+  const handleToggleReaction = async (messageId: string, emoji: string) => {
+    if (!user) return;
+
+    try {
+      const res = await api.toggleReaction(group.id, messageId, emoji);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, reactions: res.reactions } : m))
+      );
+    } catch (err) {
+      console.error('Failed to toggle reaction:', err);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      await api.deleteMessage(group.id, messageId);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    } catch (err) {
+      console.error('Failed to delete message:', err);
     }
   };
 
@@ -201,7 +279,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
     });
   }, [messages]);
 
-  // Compute online members count
   const onlineCount = members.filter((m) => m.status === 'online').length;
 
   return (
@@ -329,6 +406,74 @@ export const ChatView: React.FC<ChatViewProps> = ({
         </div>
       )}
 
+      {/* Active Call Notification Banner (Feature 2) */}
+      {activeCallInfo && activeCallInfo.active && (
+        <div
+          className="animate-slide-up"
+          style={{
+            padding: '10px 20px',
+            backgroundColor: 'rgba(99, 102, 241, 0.12)',
+            borderBottom: '1px solid rgba(99, 102, 241, 0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            zIndex: 9,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--brand-primary)',
+                color: '#FFFFFF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {activeCallInfo.callType === 'voice' ? <Phone size={16} /> : <Video size={16} />}
+            </div>
+            <div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                Active {activeCallInfo.callType === 'voice' ? 'Voice' : 'Video'} Call
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                {activeCallInfo.participantCount || 1}{' '}
+                {(activeCallInfo.participantCount || 1) === 1 ? 'person is' : 'people are'} currently in the call
+              </div>
+            </div>
+          </div>
+
+          {callStatus === 'idle' ? (
+            <button
+              onClick={() => joinCall(group.id)}
+              style={{
+                padding: '6px 16px',
+                backgroundColor: 'var(--brand-primary)',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 8px rgba(99, 102, 241, 0.35)',
+              }}
+            >
+              <Video size={14} /> Join Call
+            </button>
+          ) : (
+            <span style={{ fontSize: '0.8rem', color: 'var(--success)', fontWeight: 600 }}>
+              Connected to Call
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Message History List */}
       <div
         ref={scrollContainerRef}
@@ -418,8 +563,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
               message={msg}
               isCurrentUser={msg.sender_id === user?.id}
               groupId={group.id}
+              currentUserId={user?.id}
+              canDelete={isAdminOrOwner}
               onRetry={handleRetryMessage}
               onPreviewAttachment={onPreviewAttachment}
+              onToggleReaction={handleToggleReaction}
+              onForward={(m) => setForwardingMessage(m)}
+              onDelete={handleDeleteMessage}
             />
           ))
         )}
@@ -435,6 +585,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
         groupId={group.id}
         onSendMessage={handleSendMessage}
         onFileUploaded={loadMessages}
+      />
+
+      {/* Forward Message Modal (Feature 3) */}
+      <ForwardMessageModal
+        isOpen={!!forwardingMessage}
+        onClose={() => setForwardingMessage(null)}
+        message={forwardingMessage}
+        currentGroupId={group.id}
       />
     </div>
   );

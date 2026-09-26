@@ -1,13 +1,15 @@
 import React from 'react';
-import { Mic, MicOff, Video, VideoOff, MonitorUp, PhoneOff } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, MonitorUp, PhoneOff, MessageSquare } from 'lucide-react';
 
 interface CallControlsProps {
   isMuted: boolean;
   isCameraOff: boolean;
   isScreenSharing: boolean;
+  isChatOpen?: boolean;
   onToggleMute: () => void;
   onToggleCamera: () => void;
   onToggleScreenShare: () => void;
+  onToggleChat?: () => void;
   onEndCall: () => void;
 }
 
@@ -15,9 +17,11 @@ export const CallControls: React.FC<CallControlsProps> = ({
   isMuted,
   isCameraOff,
   isScreenSharing,
+  isChatOpen = false,
   onToggleMute,
   onToggleCamera,
   onToggleScreenShare,
+  onToggleChat,
   onEndCall,
 }) => {
   return (
@@ -97,6 +101,29 @@ export const CallControls: React.FC<CallControlsProps> = ({
       >
         <MonitorUp size={20} />
       </button>
+
+      {/* In-Call Chat Toggle Button */}
+      {onToggleChat && (
+        <button
+          onClick={onToggleChat}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '46px',
+            height: '46px',
+            borderRadius: '50%',
+            backgroundColor: isChatOpen ? 'var(--brand-primary)' : 'var(--bg-surface-elevated)',
+            border: isChatOpen ? '1px solid var(--brand-primary)' : '1px solid var(--border-subtle)',
+            color: '#FFFFFF',
+            cursor: 'pointer',
+            transition: 'all var(--transition-fast)',
+          }}
+          title={isChatOpen ? 'Hide In-Call Chat' : 'Open In-Call Chat'}
+        >
+          <MessageSquare size={20} />
+        </button>
+      )}
 
       {/* End Call Button */}
       <button

@@ -31,6 +31,13 @@ export interface Member {
   joined_at: string;
 }
 
+export interface MessageReaction {
+  emoji: string;
+  count: number;
+  userIds: string[];
+  users: Array<{ id: string; name: string }>;
+}
+
 export interface Message {
   id: string;
   group_id: string;
@@ -45,6 +52,10 @@ export interface Message {
   mime_type?: string;
   file_size?: number;
   status?: 'sending' | 'sent' | 'failed';
+  reactions?: MessageReaction[];
+  forwarded_from_message_id?: string;
+  forwarded_from_group_id?: string;
+  forwarded_from_sender_name?: string;
 }
 
 export interface FileItem {
@@ -190,6 +201,12 @@ export const api = {
       method: 'DELETE',
     }),
 
+  deleteGroup: (groupId: string, confirmationName?: string) =>
+    apiRequest<{ message: string; groupId: string }>(`/groups/${groupId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ confirmationName }),
+    }),
+
   // Messages
   getMessages: (groupId: string, limit = 50, before?: string) => {
     let url = `/groups/${groupId}/messages?limit=${limit}`;
@@ -201,6 +218,26 @@ export const api = {
     apiRequest<{ message: Message }>(`/groups/${groupId}/messages`, {
       method: 'POST',
       body: JSON.stringify({ content, messageType, fileId }),
+    }),
+
+  toggleReaction: (groupId: string, messageId: string, emoji: string) =>
+    apiRequest<{ success: boolean; action: 'added' | 'removed'; emoji: string; reactions: MessageReaction[] }>(
+      `/groups/${groupId}/messages/${messageId}/reactions`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ emoji }),
+      }
+    ),
+
+  forwardMessage: (groupId: string, messageId: string, destinationGroupId: string) =>
+    apiRequest<{ message: Message }>(`/groups/${groupId}/messages/${messageId}/forward`, {
+      method: 'POST',
+      body: JSON.stringify({ destinationGroupId }),
+    }),
+
+  deleteMessage: (groupId: string, messageId: string) =>
+    apiRequest<{ message: string; messageId: string }>(`/groups/${groupId}/messages/${messageId}`, {
+      method: 'DELETE',
     }),
 
   // Files

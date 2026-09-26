@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Paperclip, Send, X, AlertCircle, RotateCcw } from 'lucide-react';
+import { Paperclip, Send, X, AlertCircle, RotateCcw, Smile } from 'lucide-react';
 import { api } from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
+import { EmojiPicker } from './EmojiPicker';
 
 interface ChatInputProps {
   groupId: string;
@@ -22,6 +23,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const isSendingRef = useRef(false);
@@ -218,6 +220,19 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         </div>
       )}
 
+      {/* Emoji Picker Popover */}
+      {showEmojiPicker && (
+        <div style={{ position: 'absolute', bottom: '70px', left: '16px', zIndex: 100 }}>
+          <EmojiPicker
+            onSelectEmoji={(emoji) => {
+              setText((prev) => prev + emoji);
+              setShowEmojiPicker(false);
+            }}
+            onClose={() => setShowEmojiPicker(false)}
+          />
+        </div>
+      )}
+
       {/* Input Form */}
       <form
         onSubmit={handleSend}
@@ -260,6 +275,28 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           title="Share document or file"
         >
           <Paperclip size={18} />
+        </button>
+
+        {/* Emoji Picker Button */}
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: showEmojiPicker ? 'var(--brand-primary)' : 'var(--text-secondary)',
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            padding: '6px',
+            borderRadius: 'var(--radius-sm)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'color var(--transition-fast)',
+          }}
+          title="Insert emoji"
+        >
+          <Smile size={18} />
         </button>
 
         {/* Textarea */}

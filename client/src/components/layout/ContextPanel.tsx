@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Avatar } from '../common/Avatar';
 import { Badge } from '../common/Badge';
 import { Button } from '../common/Button';
+import { DeleteGroupModal } from '../common/DeleteGroupModal';
 import { Group, Member } from '../../services/api';
-import { X, QrCode, Phone, Video, FileText } from 'lucide-react';
+import { X, QrCode, Phone, Video, Trash2 } from 'lucide-react';
 import { useCall } from '../../context/CallContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface ContextPanelProps {
   group: Group;
@@ -22,6 +24,11 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
   onStartCall,
 }) => {
   const { callStatus } = useCall();
+  const { user } = useAuth();
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+
+  const currentUserMembership = members.find((m) => m.id === user?.id);
+  const isAdmin = currentUserMembership?.role === 'owner' || currentUserMembership?.role === 'admin';
 
   return (
     <aside
@@ -201,7 +208,28 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
             ))}
           </div>
         </div>
+
+        {/* Danger Zone: Delete Workspace for Admin/Owner */}
+        {isAdmin && (
+          <div style={{ marginTop: '10px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
+            <Button
+              variant="danger"
+              size="sm"
+              style={{ width: '100%' }}
+              onClick={() => setIsDeleteOpen(true)}
+              icon={<Trash2 size={14} />}
+            >
+              Delete Workspace
+            </Button>
+          </div>
+        )}
       </div>
+
+      <DeleteGroupModal
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        group={group}
+      />
     </aside>
   );
 };

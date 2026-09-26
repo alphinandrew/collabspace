@@ -5,8 +5,8 @@ class GroupRepository {
     const db = await getDatabase();
     const now = new Date().toISOString();
     await db.run(
-      `INSERT INTO groups (id, name, description, avatar, owner_id, join_code, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO groups (id, name, description, avatar, owner_id, join_code, is_deleted, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`,
       [id, name, description || '', avatar || null, ownerId, joinCode, now, now]
     );
 
@@ -23,7 +23,7 @@ class GroupRepository {
 
   async findById(id) {
     const db = await getDatabase();
-    const group = await db.get(`SELECT * FROM groups WHERE id = ?`, [id]);
+    const group = await db.get(`SELECT * FROM groups WHERE id = ? AND (is_deleted IS NULL OR is_deleted = 0)`, [id]);
     if (!group) return null;
     const memberCountRow = await db.get(`SELECT COUNT(*) as count FROM group_members WHERE group_id = ?`, [id]);
     group.member_count = memberCountRow ? parseInt(memberCountRow.count, 10) : 0;
@@ -33,7 +33,10 @@ class GroupRepository {
   async findByCode(joinCode) {
     const db = await getDatabase();
     const formatted = joinCode.toUpperCase().trim();
-    const group = await db.get(`SELECT * FROM groups WHERE join_code = ?`, [formatted]);
+    const group = await db.get(
+      `SELECT * FROM groups WHERE join_code = ? AND (is_deleted IS NULL OR is_deleted = 0)`,
+      [formatted]
+    );
     if (!group) return null;
     const memberCountRow = await db.get(`SELECT COUNT(*) as count FROM group_members WHERE group_id = ?`, [group.id]);
     group.member_count = memberCountRow ? parseInt(memberCountRow.count, 10) : 0;
@@ -49,7 +52,7 @@ class GroupRepository {
              (SELECT created_at FROM messages WHERE group_id = g.id ORDER BY created_at DESC LIMIT 1) as last_activity
       FROM groups g
       INNER JOIN group_members gm ON g.id = gm.group_id
-      WHERE gm.user_id = ?
+      WHERE gm.user_id = ? AND (g.is_deleted IS NULL OR g.is_deleted = 0)
       ORDER BY g.created_at DESC
     `;
     const rows = await db.all(sql, [userId]);
@@ -77,7 +80,8 @@ class GroupRepository {
       SELECT gm.*, u.name, u.email, u.avatar, u.status
       FROM group_members gm
       INNER JOIN users u ON gm.user_id = u.id
-      WHERE gm.group_id = ? AND gm.user_id = ?
+      INNER JOIN groups g ON gm.group_id = g.id
+      WHERE gm.group_id = ? AND gm.user_id = ? AND (g.is_deleted IS NULL OR g.is_deleted = 0)
     `;
     return await db.get(sql, [groupId, userId]);
   }
@@ -116,6 +120,16 @@ class GroupRepository {
       `DELETE FROM group_members WHERE group_id = ? AND user_id = ?`,
       [groupId, userId]
     );
+    return true;
+  }
+
+  async deleteGroup(groupId) {
+    const db = await getDatabase();
+    const now = new Date().toISOString();
+    // Soft delete group
+    await db.run(`UPDATE groups SET is_deleted = 1, updated_at = ? WHERE id = ?`, [now, groupId]);
+    // Revoke invitations
+    await db.run(`UPDATE invitations SET is_revoked = 1 WHERE group_id = ?`, [groupId]);
     return true;
   }
 

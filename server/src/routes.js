@@ -82,6 +82,7 @@ router.post('/groups/join-qr', requireAuth, groupController.joinByQr);
 
 router.get('/groups/:groupId', requireAuth, requireGroupMember, groupController.getGroupDetails);
 router.put('/groups/:groupId', requireAuth, requireGroupAdmin, groupController.updateGroup);
+router.delete('/groups/:groupId', requireAuth, requireGroupAdmin, groupController.deleteGroup);
 router.get('/groups/:groupId/invitation', requireAuth, requireGroupMember, groupController.getInvitation);
 router.get('/groups/:groupId/members', requireAuth, requireGroupMember, groupController.listMembers);
 router.put('/groups/:groupId/members/:userId/role', requireAuth, requireGroupAdmin, groupController.updateMemberRole);
@@ -90,6 +91,9 @@ router.delete('/groups/:groupId/members/:userId', requireAuth, requireGroupAdmin
 // Chat Messages Routes
 router.get('/groups/:groupId/messages', requireAuth, requireGroupMember, messageController.getMessages);
 router.post('/groups/:groupId/messages', requireAuth, requireGroupMember, messageController.sendMessage);
+router.post('/groups/:groupId/messages/:messageId/reactions', requireAuth, requireGroupMember, messageController.toggleReaction);
+router.post('/groups/:groupId/messages/:messageId/forward', requireAuth, requireGroupMember, messageController.forwardMessage);
+router.delete('/groups/:groupId/messages/:messageId', requireAuth, requireGroupMember, messageController.deleteMessage);
 
 // File Upload & Library Routes
 router.post('/groups/:groupId/files', requireAuth, requireGroupMember, upload.single('file'), fileController.uploadFile);

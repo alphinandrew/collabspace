@@ -360,11 +360,99 @@ class GroupController {
         return res.status(403).json({ error: 'The group owner cannot be removed.' });
       }
 
+      // If caller is admin, they cannot remove another admin or the owner
+      if (req.membership && req.membership.role === 'admin' && targetMember.role === 'admin') {
+        return res.status(403).json({ error: 'Administrators cannot remove other administrators.' });
+      }
+
       await groupRepository.removeMember(groupId, userId);
-      return res.json({ message: 'Member removed from group successfully.' });
+
+      const io = req.app.get('io');
+      const { activeCalls, broadcastActiveCallState } = require('../realtime/callSignaler');
+      const callRepository = require('../db/repositories/callRepository');
+
+      // If removed member is currently participating in an active call for this group, terminate their participation
+      const callState = activeCalls.get(groupId);
+      if (callState) {
+        let removedFromCall = false;
+        for (const [sId, p] of callState.participants.entries()) {
+          if (p.user && p.user.id === userId) {
+            callState.participants.delete(sId);
+            removedFromCall = true;
+            if (io) {
+              io.to(`group_${groupId}`).emit('call:peer-left', { socketId: sId, userId });
+            }
+          }
+        }
+        if (removedFromCall) {
+          if (callState.participants.size === 0) {
+            activeCalls.delete(groupId);
+            callRepository.updateStatus(callState.callId, 'ended', new Date().toISOString()).catch(() => {});
+            if (io) io.to(`group_${groupId}`).emit('call:ended', { callId: callState.callId, groupId });
+          }
+          if (io) broadcastActiveCallState(io, groupId);
+        }
+      }
+
+      // Revoke socket access in realtime
+      if (io) {
+        io.to(`group_${groupId}`).emit('group:member_removed', { groupId, userId });
+        io.to(`user_${userId}`).emit('group:member_removed', { groupId, userId, isSelf: true });
+        io.in(`user_${userId}`).socketsLeave(`group_${groupId}`);
+      }
+
+      return res.json({ message: 'Member removed from group successfully.', userId, groupId });
     } catch (err) {
       console.error('Remove member error:', err);
       return res.status(500).json({ error: 'Failed to remove member.' });
+    }
+  }
+
+  async deleteGroup(req, res) {
+    try {
+      const { groupId } = req.params;
+      const { confirmationName } = req.body || {};
+
+      const group = await groupRepository.findById(groupId);
+      if (!group) {
+        return res.status(404).json({ error: 'Group not found.' });
+      }
+
+      // Check confirmation name if provided
+      if (confirmationName && confirmationName.trim().toLowerCase() !== group.name.trim().toLowerCase()) {
+        return res.status(400).json({
+          error: `Group name does not match. Expected "${group.name}".`,
+        });
+      }
+
+      const io = req.app.get('io');
+      const { activeCalls, broadcastActiveCallState } = require('../realtime/callSignaler');
+      const callRepository = require('../db/repositories/callRepository');
+
+      // 1. Terminate any active call in progress for this group
+      const callState = activeCalls.get(groupId);
+      if (callState) {
+        activeCalls.delete(groupId);
+        await callRepository.updateStatus(callState.callId, 'ended', new Date().toISOString()).catch(() => {});
+        if (io) {
+          io.to(`group_${groupId}`).emit('call:ended', { callId: callState.callId, groupId });
+          broadcastActiveCallState(io, groupId);
+        }
+      }
+
+      // 2. Soft delete the group in database
+      await groupRepository.deleteGroup(groupId);
+
+      // 3. Realtime broadcast to all members and evict sockets
+      if (io) {
+        io.to(`group_${groupId}`).emit('group:deleted', { groupId, name: group.name });
+        io.in(`group_${groupId}`).socketsLeave(`group_${groupId}`);
+      }
+
+      return res.json({ message: 'Group deleted successfully.', groupId });
+    } catch (err) {
+      console.error('Delete group error:', err);
+      return res.status(500).json({ error: 'Failed to delete group.' });
     }
   }
 

@@ -272,6 +272,44 @@ async function initSchema(db) {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS message_reactions (
+      id TEXT PRIMARY KEY,
+      message_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      emoji TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      UNIQUE(message_id, user_id, emoji),
+      FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS forwarded_messages (
+      id TEXT PRIMARY KEY,
+      original_message_id TEXT,
+      forwarded_message_id TEXT NOT NULL,
+      source_group_id TEXT NOT NULL,
+      destination_group_id TEXT NOT NULL,
+      forwarded_by TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (original_message_id) REFERENCES messages(id) ON DELETE SET NULL,
+      FOREIGN KEY (forwarded_message_id) REFERENCES messages(id) ON DELETE CASCADE,
+      FOREIGN KEY (source_group_id) REFERENCES groups(id) ON DELETE CASCADE,
+      FOREIGN KEY (destination_group_id) REFERENCES groups(id) ON DELETE CASCADE,
+      FOREIGN KEY (forwarded_by) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS call_participants (
+      id TEXT PRIMARY KEY,
+      call_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      socket_id TEXT,
+      joined_at TEXT NOT NULL,
+      left_at TEXT,
+      status TEXT NOT NULL DEFAULT 'joined',
+      FOREIGN KEY (call_id) REFERENCES calls(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_groups_join_code ON groups(join_code);
     CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id);
     CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
@@ -279,7 +317,31 @@ async function initSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_messages_group ON messages(group_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_files_group ON files(group_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(email);
+    CREATE INDEX IF NOT EXISTS idx_reactions_message ON message_reactions(message_id);
+    CREATE INDEX IF NOT EXISTS idx_call_participants_call ON call_participants(call_id);
+    CREATE INDEX IF NOT EXISTS idx_forwarded_messages_dest ON forwarded_messages(destination_group_id);
   `);
+
+  // Run backward-compatible column migrations
+  const addCol = async (table, col, def) => {
+    try {
+      if (db.driver === 'postgres') {
+        await db.run(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${col} ${def}`);
+      } else {
+        const cols = await db.all(`PRAGMA table_info(${table})`);
+        if (!cols.some(c => c.name === col)) {
+          await db.run(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
+        }
+      }
+    } catch (e) {
+      // Column may already exist
+    }
+  };
+
+  await addCol('groups', 'is_deleted', 'INTEGER DEFAULT 0');
+  await addCol('messages', 'forwarded_from_message_id', 'TEXT');
+  await addCol('messages', 'forwarded_from_group_id', 'TEXT');
+  await addCol('messages', 'forwarded_from_sender_name', 'TEXT');
 }
 
 module.exports = {

@@ -1,9 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useCall, RemoteParticipant } from '../../context/CallContext';
 import { useAuth } from '../../context/AuthContext';
+import { useGroup } from '../../context/GroupContext';
 import { CallControls } from './CallControls';
+import { ChatView } from '../chat/ChatView';
 import { Avatar } from '../common/Avatar';
-import { Phone, Video, AlertCircle, Loader2 } from 'lucide-react';
+import { Phone, Video, AlertCircle, Loader2, MessageSquare, X } from 'lucide-react';
 
 interface ParticipantTileProps {
   stream?: MediaStream;
@@ -118,6 +120,7 @@ export const CallOverlay: React.FC = () => {
   const {
     callStatus,
     callType,
+    activeGroupId,
     localStream,
     remoteParticipants,
     isMuted,
@@ -131,10 +134,14 @@ export const CallOverlay: React.FC = () => {
     retryCall,
   } = useCall();
   const { user } = useAuth();
+  const { groups, activeGroup, activeMembers } = useGroup();
+
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   if (callStatus === 'idle') return null;
 
   const participantsList = Array.from(remoteParticipants.values());
+  const callGroup = (activeGroupId && groups.find((g) => g.id === activeGroupId)) || activeGroup;
 
   return (
     <div
@@ -150,13 +157,14 @@ export const CallOverlay: React.FC = () => {
       {/* Call Header */}
       <div
         style={{
-          padding: '16px 24px',
+          padding: '14px 24px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           borderBottom: '1px solid var(--border-subtle)',
-          backgroundColor: 'rgba(15, 23, 42, 0.8)',
+          backgroundColor: 'rgba(15, 23, 42, 0.85)',
           backdropFilter: 'blur(8px)',
+          zIndex: 10,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -201,8 +209,31 @@ export const CallOverlay: React.FC = () => {
           </span>
         </div>
 
-        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          {participantsList.length + 1} in call
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            {participantsList.length + 1} in call
+          </div>
+
+          <button
+            onClick={() => setIsChatOpen(!isChatOpen)}
+            style={{
+              padding: '6px 12px',
+              backgroundColor: isChatOpen ? 'var(--brand-primary)' : 'var(--bg-surface-elevated)',
+              color: '#FFFFFF',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-md)',
+              fontSize: '0.8rem',
+              fontWeight: 500,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all var(--transition-fast)',
+            }}
+          >
+            <MessageSquare size={14} />
+            <span>Chat</span>
+          </button>
         </div>
       </div>
 
@@ -244,70 +275,148 @@ export const CallOverlay: React.FC = () => {
         </div>
       )}
 
-      {/* Video Grid Area */}
-      <div
-        style={{
-          flex: 1,
-          padding: '24px',
-          display: 'grid',
-          gridTemplateColumns:
-            participantsList.length === 0
-              ? '1fr'
-              : participantsList.length === 1
-              ? '1fr 1fr'
-              : 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '20px',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflowY: 'auto',
-        }}
-      >
-        {/* Local Participant Tile */}
-        <ParticipantTile
-          stream={localStream || undefined}
-          name={user?.name || 'You'}
-          avatar={user?.avatar}
-          isMuted={isMuted}
-          isCameraOff={isCameraOff}
-          isScreenSharing={isScreenSharing}
-          isLocal={true}
-        />
+      {/* Main Workspace Area: Call Media + In-Call Chat Drawer (Feature 1) */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+        {/* Left Side: Video/Voice Participants + Floating Call Controls */}
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            minWidth: 0,
+            position: 'relative',
+          }}
+        >
+          {/* Video Grid Area */}
+          <div
+            style={{
+              flex: 1,
+              padding: '24px',
+              display: 'grid',
+              gridTemplateColumns:
+                participantsList.length === 0
+                  ? '1fr'
+                  : participantsList.length === 1
+                  ? '1fr 1fr'
+                  : 'repeat(auto-fit, minmax(320px, 1fr))',
+              gap: '20px',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflowY: 'auto',
+            }}
+          >
+            {/* Local Participant Tile */}
+            <ParticipantTile
+              stream={localStream || undefined}
+              name={user?.name || 'You'}
+              avatar={user?.avatar}
+              isMuted={isMuted}
+              isCameraOff={isCameraOff}
+              isScreenSharing={isScreenSharing}
+              isLocal={true}
+            />
 
-        {/* Remote Participant Tiles */}
-        {participantsList.map((peer) => (
-          <ParticipantTile
-            key={peer.socketId}
-            stream={peer.stream}
-            name={peer.user.name}
-            avatar={peer.user.avatar}
-            isMuted={peer.isMuted}
-            isCameraOff={peer.isCameraOff}
-            isScreenSharing={peer.isScreenSharing}
-            isLocal={false}
-          />
-        ))}
-      </div>
+            {/* Remote Participant Tiles */}
+            {participantsList.map((peer) => (
+              <ParticipantTile
+                key={peer.socketId}
+                stream={peer.stream}
+                name={peer.user.name}
+                avatar={peer.user.avatar}
+                isMuted={peer.isMuted}
+                isCameraOff={peer.isCameraOff}
+                isScreenSharing={peer.isScreenSharing}
+                isLocal={false}
+              />
+            ))}
+          </div>
 
-      {/* Floating Bottom Call Controls */}
-      <div
-        style={{
-          padding: '20px',
-          display: 'flex',
-          justifyContent: 'center',
-          backgroundColor: 'transparent',
-          position: 'relative',
-          zIndex: 10,
-        }}
-      >
-        <CallControls
-          isMuted={isMuted}
-          isCameraOff={isCameraOff}
-          isScreenSharing={isScreenSharing}
-          onToggleMute={toggleMute}
-          onToggleCamera={toggleCamera}
-          onToggleScreenShare={toggleScreenShare}
-          onEndCall={leaveCall}
-        />
+          {/* Floating Bottom Call Controls */}
+          <div
+            style={{
+              padding: '20px',
+              display: 'flex',
+              justifyContent: 'center',
+              backgroundColor: 'transparent',
+              position: 'relative',
+              zIndex: 10,
+            }}
+          >
+            <CallControls
+              isMuted={isMuted}
+              isCameraOff={isCameraOff}
+              isScreenSharing={isScreenSharing}
+              isChatOpen={isChatOpen}
+              onToggleMute={toggleMute}
+              onToggleCamera={toggleCamera}
+              onToggleScreenShare={toggleScreenShare}
+              onToggleChat={() => setIsChatOpen(!isChatOpen)}
+              onEndCall={leaveCall}
+            />
+          </div>
+        </div>
+
+        {/* Right Side: Persistent In-Call Group Chat (Feature 1) */}
+        {isChatOpen && callGroup && (
+          <div
+            className="animate-slide-up"
+            style={{
+              width: '390px',
+              maxWidth: '100%',
+              height: '100%',
+              borderLeft: '1px solid var(--border-subtle)',
+              backgroundColor: 'var(--bg-surface)',
+              display: 'flex',
+              flexDirection: 'column',
+              zIndex: 20,
+              boxShadow: 'var(--shadow-xl)',
+            }}
+          >
+            <div
+              style={{
+                padding: '12px 18px',
+                backgroundColor: 'var(--bg-surface-elevated)',
+                borderBottom: '1px solid var(--border-subtle)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <MessageSquare size={16} color="var(--brand-primary)" />
+                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  In-Call Group Chat
+                </span>
+              </div>
+              <button
+                onClick={() => setIsChatOpen(false)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  borderRadius: 'var(--radius-sm)',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                title="Close chat panel"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+              <ChatView
+                group={callGroup}
+                members={activeMembers}
+                onStartCall={() => {}}
+                onToggleInfo={() => {}}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
