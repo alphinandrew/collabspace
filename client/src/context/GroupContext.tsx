@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api, Group, InvitationData, Member } from '../services/api';
 import { useAuth } from './AuthContext';
-import { useSocket } from './SocketContext';
 
 interface GroupContextType {
   groups: Group[];
@@ -20,7 +19,6 @@ const GroupContext = createContext<GroupContextType | undefined>(undefined);
 
 export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const { socket } = useSocket();
   const [groups, setGroups] = useState<Group[]>([]);
   const [activeGroup, setActiveGroup] = useState<Group | null>(null);
   const [activeMembers, setActiveMembers] = useState<Member[]>([]);
@@ -83,39 +81,6 @@ export const GroupProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       refreshActiveGroupMembers();
     }
   }, [activeGroup, refreshActiveGroupMembers]);
-
-  // Realtime member removal and group deletion listeners
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleMemberRemoved = ({ groupId, userId, isSelf }: any) => {
-      if (isSelf || userId === user?.id) {
-        setGroups((prev) => prev.filter((g) => g.id !== groupId));
-        if (activeGroup?.id === groupId) {
-          localStorage.removeItem('collabspace_last_active_group');
-          refreshGroups();
-        }
-      } else if (activeGroup?.id === groupId) {
-        refreshActiveGroupMembers();
-      }
-    };
-
-    const handleGroupDeleted = ({ groupId }: any) => {
-      setGroups((prev) => prev.filter((g) => g.id !== groupId));
-      if (activeGroup?.id === groupId) {
-        localStorage.removeItem('collabspace_last_active_group');
-        refreshGroups();
-      }
-    };
-
-    socket.on('group:member_removed', handleMemberRemoved);
-    socket.on('group:deleted', handleGroupDeleted);
-
-    return () => {
-      socket.off('group:member_removed', handleMemberRemoved);
-      socket.off('group:deleted', handleGroupDeleted);
-    };
-  }, [socket, user?.id, activeGroup?.id, refreshGroups, refreshActiveGroupMembers]);
 
   const selectGroup = (group: Group) => {
     localStorage.setItem('collabspace_last_active_group', group.id);

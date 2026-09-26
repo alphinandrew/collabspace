@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { GroupProvider, useGroup } from './context/GroupContext';
-import { SocketProvider } from './context/SocketContext';
+import { SocketProvider, useSocket } from './context/SocketContext';
 import { CallProvider } from './context/CallContext';
 import { WelcomeScreen } from './components/onboarding/WelcomeScreen';
 import { AppLayout } from './components/layout/AppLayout';
@@ -133,6 +133,44 @@ const MainAppContent: React.FC = () => {
   return <AppLayout />;
 };
 
+const GroupSocketSubscriber: React.FC = () => {
+  const { user } = useAuth();
+  const { socket } = useSocket();
+  const { activeGroup, refreshGroups, refreshActiveGroupMembers } = useGroup();
+
+  React.useEffect(() => {
+    if (!socket) return;
+
+    const handleMemberRemoved = ({ groupId, userId, isSelf }: any) => {
+      if (isSelf || userId === user?.id) {
+        if (activeGroup?.id === groupId) {
+          localStorage.removeItem('collabspace_last_active_group');
+        }
+        refreshGroups();
+      } else if (activeGroup?.id === groupId) {
+        refreshActiveGroupMembers();
+      }
+    };
+
+    const handleGroupDeleted = ({ groupId }: any) => {
+      if (activeGroup?.id === groupId) {
+        localStorage.removeItem('collabspace_last_active_group');
+      }
+      refreshGroups();
+    };
+
+    socket.on('group:member_removed', handleMemberRemoved);
+    socket.on('group:deleted', handleGroupDeleted);
+
+    return () => {
+      socket.off('group:member_removed', handleMemberRemoved);
+      socket.off('group:deleted', handleGroupDeleted);
+    };
+  }, [socket, user?.id, activeGroup?.id, refreshGroups, refreshActiveGroupMembers]);
+
+  return null;
+};
+
 export function App() {
   return (
     <ErrorBoundary>
@@ -140,6 +178,7 @@ export function App() {
         <GroupProvider>
           <SocketProvider>
             <CallProvider>
+              <GroupSocketSubscriber />
               <MainAppContent />
             </CallProvider>
           </SocketProvider>
