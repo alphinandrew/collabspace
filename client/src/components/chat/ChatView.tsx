@@ -35,6 +35,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [typingUsers, setTypingUsers] = useState<TypingUserInfo[]>([]);
   const [activeCallInfo, setActiveCallInfo] = useState<any | null>(null);
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
+  const [reactionError, setReactionError] = useState<{ messageId: string; emoji: string; error: string } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -238,14 +239,20 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
   const handleToggleReaction = async (messageId: string, emoji: string) => {
     if (!user) return;
+    setReactionError(null);
 
     try {
       const res = await api.toggleReaction(group.id, messageId, emoji);
       setMessages((prev) =>
         prev.map((m) => (m.id === messageId ? { ...m, reactions: res.reactions } : m))
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to toggle reaction:', err);
+      setReactionError({
+        messageId,
+        emoji,
+        error: err.message || 'Failed to update reaction.',
+      });
     }
   };
 
@@ -579,6 +586,55 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Reaction Error Banner with Retry */}
+      {reactionError && (
+        <div
+          style={{
+            margin: '0 20px 8px 20px',
+            padding: '8px 14px',
+            backgroundColor: 'var(--danger-bg)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--danger)',
+            fontSize: '0.825rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+          }}
+        >
+          <span>{reactionError.error}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={() => handleToggleReaction(reactionError.messageId, reactionError.emoji)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--danger)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                fontSize: '0.8rem',
+              }}
+            >
+              Retry
+            </button>
+            <button
+              onClick={() => setReactionError(null)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Chat Input */}
       <ChatInput

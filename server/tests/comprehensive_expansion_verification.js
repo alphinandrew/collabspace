@@ -165,8 +165,8 @@ async function runVerificationSuite() {
     const rxnEventMatch = receivedReactionEvent && receivedReactionEvent.emoji === '👍' && receivedReactionEvent.userId === userB.id;
     recordResult('Reaction Add & Realtime Broadcast', hasReactionB && rxnEventMatch, 'Bob reacted 👍, Alice received realtime chat:reaction event');
 
-    // Charlie also reacts with 👍 and ❤️
-    await apiRequest(`/groups/${grpAlpha.id}/messages/${msgId}/reactions`, 'POST', { emoji: '👍' }, tokenC);
+    // Alice also reacts with 👍 and Charlie reacts with ❤️ (one reaction per user)
+    await apiRequest(`/groups/${grpAlpha.id}/messages/${msgId}/reactions`, 'POST', { emoji: '👍' }, tokenA);
     await apiRequest(`/groups/${grpAlpha.id}/messages/${msgId}/reactions`, 'POST', { emoji: '❤️' }, tokenC);
 
     // Verify aggregated counts

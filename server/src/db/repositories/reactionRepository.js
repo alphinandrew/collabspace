@@ -5,18 +5,29 @@ class ReactionRepository {
   async toggleReaction({ messageId, userId, emoji }) {
     const db = await getDatabase();
     
-    // Check existing
+    // Check if user already has any reaction on this message
     const existing = await db.get(
-      `SELECT * FROM message_reactions WHERE message_id = ? AND user_id = ? AND emoji = ?`,
-      [messageId, userId, emoji]
+      `SELECT * FROM message_reactions WHERE message_id = ? AND user_id = ?`,
+      [messageId, userId]
     );
 
     if (existing) {
-      await db.run(
-        `DELETE FROM message_reactions WHERE id = ?`,
-        [existing.id]
-      );
-      return { action: 'removed', id: existing.id, messageId, userId, emoji };
+      if (existing.emoji === emoji) {
+        // Same emoji -> toggle off (remove)
+        await db.run(
+          `DELETE FROM message_reactions WHERE id = ?`,
+          [existing.id]
+        );
+        return { action: 'removed', id: existing.id, messageId, userId, emoji };
+      } else {
+        // Different emoji -> update existing reaction to the new emoji
+        const now = new Date().toISOString();
+        await db.run(
+          `UPDATE message_reactions SET emoji = ?, created_at = ? WHERE id = ?`,
+          [emoji, now, existing.id]
+        );
+        return { action: 'updated', id: existing.id, messageId, userId, emoji, previousEmoji: existing.emoji };
+      }
     } else {
       const id = 'rxn_' + uuidv4().replace(/-/g, '').slice(0, 16);
       const now = new Date().toISOString();

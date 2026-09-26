@@ -16,29 +16,31 @@ export const DeleteGroupModal: React.FC<DeleteGroupModalProps> = ({
   group,
 }) => {
   const { refreshGroups } = useGroup();
-  const [confirmName, setConfirmName] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const isMatched = confirmName.trim().toLowerCase() === group.name.trim().toLowerCase();
-
   const handleDelete = async () => {
-    if (!isMatched) return;
     setDeleting(true);
     setError(null);
 
     try {
-      await api.deleteGroup(group.id, confirmName.trim());
+      await api.deleteGroup(group.id);
       localStorage.removeItem('collabspace_last_active_group');
       await refreshGroups();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to delete workspace.');
+      setError(err.message || 'Failed to delete group.');
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleCancel = () => {
+    if (deleting) return;
+    setError(null);
+    onClose();
   };
 
   return (
@@ -54,7 +56,7 @@ export const DeleteGroupModal: React.FC<DeleteGroupModalProps> = ({
         justifyContent: 'center',
         padding: '20px',
       }}
-      onClick={onClose}
+      onClick={handleCancel}
     >
       <div
         className="animate-slide-up"
@@ -85,16 +87,17 @@ export const DeleteGroupModal: React.FC<DeleteGroupModalProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <AlertTriangle size={20} color="var(--danger)" />
             <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--danger)' }}>
-              Delete this group?
+              Delete Group
             </h3>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleCancel}
+            disabled={deleting}
             style={{
               background: 'transparent',
               border: 'none',
               color: 'var(--text-secondary)',
-              cursor: 'pointer',
+              cursor: deleting ? 'not-allowed' : 'pointer',
               padding: '4px',
               borderRadius: 'var(--radius-sm)',
             }}
@@ -104,55 +107,28 @@ export const DeleteGroupModal: React.FC<DeleteGroupModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            This will remove the group and its access to messages, members, calls, and shared files
-            according to the group's deletion policy. This action may be irreversible.
+        <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: 1.5 }}>
+            Are you sure you want to permanently delete the group <strong style={{ color: 'var(--text-primary)', textDecoration: 'underline' }}>{group.name}</strong>?
+          </p>
+          <p style={{ fontSize: '0.825rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+            All messages, shared attachments, group membership records, and active calls in this workspace will be permanently removed. This action cannot be undone.
           </p>
 
           {error && (
             <div
               style={{
-                padding: '8px 12px',
+                padding: '10px 14px',
                 backgroundColor: 'var(--danger-bg)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
                 color: 'var(--danger)',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: '0.8rem',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.85rem',
               }}
             >
               {error}
             </div>
           )}
-
-          <div>
-            <label
-              style={{
-                fontSize: '0.825rem',
-                fontWeight: 600,
-                color: 'var(--text-primary)',
-                display: 'block',
-                marginBottom: '6px',
-              }}
-            >
-              Type <strong style={{ color: 'var(--danger)' }}>{group.name}</strong> to confirm:
-            </label>
-            <input
-              type="text"
-              placeholder={group.name}
-              value={confirmName}
-              onChange={(e) => setConfirmName(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                backgroundColor: 'var(--bg-app)',
-                border: isMatched ? '1px solid var(--danger)' : '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-md)',
-                color: 'var(--text-primary)',
-                fontSize: '0.9rem',
-                outline: 'none',
-              }}
-            />
-          </div>
         </div>
 
         {/* Footer Actions */}
@@ -166,14 +142,14 @@ export const DeleteGroupModal: React.FC<DeleteGroupModalProps> = ({
             backgroundColor: 'var(--bg-surface-elevated)',
           }}
         >
-          <Button variant="ghost" size="sm" onClick={onClose} disabled={deleting}>
+          <Button variant="ghost" size="sm" onClick={handleCancel} disabled={deleting}>
             Cancel
           </Button>
           <Button
             variant="danger"
             size="sm"
             onClick={handleDelete}
-            disabled={!isMatched || deleting}
+            disabled={deleting}
             loading={deleting}
           >
             Delete Group

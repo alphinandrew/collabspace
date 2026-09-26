@@ -19,11 +19,12 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
   const [removingMember, setRemovingMember] = useState(false);
+  const [removeModalError, setRemoveModalError] = useState<string | null>(null);
   const [isDeleteGroupOpen, setIsDeleteGroupOpen] = useState(false);
 
   // Determine current user's role in this group
   const currentUserMembership = activeMembers.find((m) => m.id === user?.id);
-  const isOwner = currentUserMembership?.role === 'owner';
+  const isOwner = group.owner_id === user?.id || currentUserMembership?.role === 'owner';
   const isAdmin = isOwner || currentUserMembership?.role === 'admin';
 
   const handleRoleChange = async (memberId: string, newRole: 'admin' | 'member') => {
@@ -40,14 +41,15 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
   const confirmRemoveMember = async () => {
     if (!memberToRemove) return;
     setRemovingMember(true);
+    setRemoveModalError(null);
     setActionError(null);
 
     try {
       await api.removeMember(group.id, memberToRemove.id);
-      refreshActiveGroupMembers();
+      await refreshActiveGroupMembers();
       setMemberToRemove(null);
     } catch (err: any) {
-      setActionError(err.message || 'Failed to remove member.');
+      setRemoveModalError(err.message || 'Failed to remove member.');
     } finally {
       setRemovingMember(false);
     }
@@ -293,10 +295,10 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
         >
           <div>
             <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--danger)' }}>
-              Danger Zone: Delete Workspace
+              Danger Zone: Delete Group
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Permanently delete this workspace, active calls, and associated records.
+              Permanently delete this group, active calls, and associated records.
             </div>
           </div>
 
@@ -306,12 +308,12 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
             onClick={() => setIsDeleteGroupOpen(true)}
             icon={<Trash2 size={14} />}
           >
-            Delete Workspace
+            Delete Group
           </Button>
         </div>
       )}
 
-      {/* Member Removal Confirmation Dialog (Feature 4.2) */}
+      {/* Member Removal Confirmation Dialog */}
       {memberToRemove && (
         <div
           style={{
@@ -325,7 +327,9 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
             justifyContent: 'center',
             padding: '20px',
           }}
-          onClick={() => setMemberToRemove(null)}
+          onClick={() => {
+            if (!removingMember) setMemberToRemove(null);
+          }}
         >
           <div
             className="animate-slide-up"
@@ -354,16 +358,19 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <UserX size={18} color="var(--danger)" />
                 <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  Remove {memberToRemove.name} from this group?
+                  Remove {memberToRemove.name} from group?
                 </h3>
               </div>
               <button
-                onClick={() => setMemberToRemove(null)}
+                onClick={() => {
+                  if (!removingMember) setMemberToRemove(null);
+                }}
+                disabled={removingMember}
                 style={{
                   background: 'transparent',
                   border: 'none',
                   color: 'var(--text-secondary)',
-                  cursor: 'pointer',
+                  cursor: removingMember ? 'not-allowed' : 'pointer',
                   padding: '4px',
                   borderRadius: 'var(--radius-sm)',
                 }}
@@ -372,8 +379,25 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
               </button>
             </div>
 
-            <div style={{ padding: '20px', fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-              <strong>{memberToRemove.name}</strong> will lose access to this group's messages, files, and calls.
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                Are you sure you want to remove <strong>{memberToRemove.name}</strong> from <strong>{group.name}</strong>? They will lose access to all messages, files, and calls in this workspace.
+              </p>
+
+              {removeModalError && (
+                <div
+                  style={{
+                    padding: '10px 14px',
+                    backgroundColor: 'var(--danger-bg)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    color: 'var(--danger)',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  {removeModalError}
+                </div>
+              )}
             </div>
 
             <div
@@ -386,7 +410,12 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
                 backgroundColor: 'var(--bg-surface-elevated)',
               }}
             >
-              <Button variant="ghost" size="sm" onClick={() => setMemberToRemove(null)} disabled={removingMember}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setMemberToRemove(null)}
+                disabled={removingMember}
+              >
                 Cancel
               </Button>
               <Button
@@ -394,6 +423,7 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
                 size="sm"
                 onClick={confirmRemoveMember}
                 loading={removingMember}
+                disabled={removingMember}
               >
                 Remove Member
               </Button>

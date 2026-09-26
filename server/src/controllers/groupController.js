@@ -351,13 +351,26 @@ class GroupController {
     try {
       const { groupId, userId } = req.params;
 
+      const group = await groupRepository.findById(groupId);
+      if (!group) {
+        return res.status(404).json({ error: 'Group not found.' });
+      }
+
       const targetMember = await groupRepository.findMember(groupId, userId);
       if (!targetMember) {
         return res.status(404).json({ error: 'Member not found in this group.' });
       }
 
-      if (targetMember.role === 'owner') {
+      const targetUserId = targetMember.user_id;
+
+      // Prevent removing the group owner
+      if (targetMember.role === 'owner' || targetUserId === group.owner_id) {
         return res.status(403).json({ error: 'The group owner cannot be removed.' });
+      }
+
+      // Prevent user from kicking themselves using the admin action
+      if (req.user.id === targetUserId) {
+        return res.status(400).json({ error: 'Cannot remove yourself using the admin kick action. Use leave workspace instead.' });
       }
 
       // If caller is admin, they cannot remove another admin or the owner
@@ -365,7 +378,7 @@ class GroupController {
         return res.status(403).json({ error: 'Administrators cannot remove other administrators.' });
       }
 
-      await groupRepository.removeMember(groupId, userId);
+      await groupRepository.removeMember(groupId, targetUserId);
 
       const io = req.app.get('io');
       const { activeCalls, broadcastActiveCallState } = require('../realtime/callSignaler');
@@ -376,11 +389,11 @@ class GroupController {
       if (callState) {
         let removedFromCall = false;
         for (const [sId, p] of callState.participants.entries()) {
-          if (p.user && p.user.id === userId) {
+          if (p.user && p.user.id === targetUserId) {
             callState.participants.delete(sId);
             removedFromCall = true;
             if (io) {
-              io.to(`group_${groupId}`).emit('call:peer-left', { socketId: sId, userId });
+              io.to(`group_${groupId}`).emit('call:peer-left', { socketId: sId, userId: targetUserId });
             }
           }
         }
@@ -396,12 +409,12 @@ class GroupController {
 
       // Revoke socket access in realtime
       if (io) {
-        io.to(`group_${groupId}`).emit('group:member_removed', { groupId, userId });
-        io.to(`user_${userId}`).emit('group:member_removed', { groupId, userId, isSelf: true });
-        io.in(`user_${userId}`).socketsLeave(`group_${groupId}`);
+        io.to(`group_${groupId}`).emit('group:member_removed', { groupId, userId: targetUserId });
+        io.to(`user_${targetUserId}`).emit('group:member_removed', { groupId, userId: targetUserId, isSelf: true });
+        io.in(`user_${targetUserId}`).socketsLeave(`group_${groupId}`);
       }
 
-      return res.json({ message: 'Member removed from group successfully.', userId, groupId });
+      return res.json({ message: 'Member removed from group successfully.', userId: targetUserId, groupId });
     } catch (err) {
       console.error('Remove member error:', err);
       return res.status(500).json({ error: 'Failed to remove member.' });

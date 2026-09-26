@@ -3,10 +3,11 @@ import { Avatar } from '../common/Avatar';
 import { Badge } from '../common/Badge';
 import { Button } from '../common/Button';
 import { DeleteGroupModal } from '../common/DeleteGroupModal';
-import { Group, Member } from '../../services/api';
-import { X, QrCode, Phone, Video, Trash2 } from 'lucide-react';
+import { Group, Member, api } from '../../services/api';
+import { X, QrCode, Phone, Video, Trash2, UserX } from 'lucide-react';
 import { useCall } from '../../context/CallContext';
 import { useAuth } from '../../context/AuthContext';
+import { useGroup } from '../../context/GroupContext';
 
 interface ContextPanelProps {
   group: Group;
@@ -25,10 +26,30 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
 }) => {
   const { callStatus } = useCall();
   const { user } = useAuth();
+  const { refreshActiveGroupMembers } = useGroup();
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
+  const [removingMember, setRemovingMember] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const currentUserMembership = members.find((m) => m.id === user?.id);
-  const isAdmin = currentUserMembership?.role === 'owner' || currentUserMembership?.role === 'admin';
+  const isOwner = group.owner_id === user?.id || currentUserMembership?.role === 'owner';
+  const isAdmin = isOwner || currentUserMembership?.role === 'admin';
+
+  const handleConfirmRemoveMember = async () => {
+    if (!memberToRemove) return;
+    setRemovingMember(true);
+    setRemoveError(null);
+    try {
+      await api.removeMember(group.id, memberToRemove.id);
+      await refreshActiveGroupMembers();
+      setMemberToRemove(null);
+    } catch (err: any) {
+      setRemoveError(err.message || 'Failed to remove member.');
+    } finally {
+      setRemovingMember(false);
+    }
+  };
 
   return (
     <aside
@@ -164,52 +185,86 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {members.map((member) => (
-              <div
-                key={member.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '6px 8px',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--bg-surface)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                  <Avatar name={member.name} size="sm" status={member.status} />
-                  <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontSize: '0.825rem',
-                        fontWeight: 600,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {member.name}
+            {members.map((member) => {
+              const isSelf = member.id === user?.id;
+              const canKick =
+                !isSelf &&
+                member.role !== 'owner' &&
+                (isOwner || (isAdmin && member.role === 'member'));
+
+              return (
+                <div
+                  key={member.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '6px 8px',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--bg-surface)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <Avatar name={member.name} size="sm" status={member.status} />
+                    <div style={{ minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: '0.825rem',
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {member.name}
+                      </div>
                     </div>
                   </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Badge
+                      size="sm"
+                      variant={
+                        member.role === 'owner'
+                          ? 'primary'
+                          : member.role === 'admin'
+                          ? 'warning'
+                          : 'neutral'
+                      }
+                    >
+                      {member.role}
+                    </Badge>
+                    {canKick && (
+                      <button
+                        onClick={() => {
+                          setRemoveError(null);
+                          setMemberToRemove(member);
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: '3px',
+                          borderRadius: 'var(--radius-sm)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        title={`Remove ${member.name} from group`}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--danger)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                      >
+                        <UserX size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <Badge
-                  size="sm"
-                  variant={
-                    member.role === 'owner'
-                      ? 'primary'
-                      : member.role === 'admin'
-                      ? 'warning'
-                      : 'neutral'
-                  }
-                >
-                  {member.role}
-                </Badge>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
-        {/* Danger Zone: Delete Workspace for Admin/Owner */}
+        {/* Danger Zone: Delete Group for Admin/Owner */}
         {isAdmin && (
           <div style={{ marginTop: '10px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
             <Button
@@ -219,11 +274,130 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
               onClick={() => setIsDeleteOpen(true)}
               icon={<Trash2 size={14} />}
             >
-              Delete Workspace
+              Delete Group
             </Button>
           </div>
         )}
       </div>
+
+      {/* Member Removal Confirmation Dialog */}
+      {memberToRemove && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1200,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={() => {
+            if (!removingMember) setMemberToRemove(null);
+          }}
+        >
+          <div
+            className="animate-slide-up"
+            style={{
+              width: '100%',
+              maxWidth: '440px',
+              backgroundColor: 'var(--bg-surface)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--border-subtle)',
+              boxShadow: 'var(--shadow-xl)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border-subtle)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <UserX size={18} color="var(--danger)" />
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  Remove {memberToRemove.name} from group?
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  if (!removingMember) setMemberToRemove(null);
+                }}
+                disabled={removingMember}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-secondary)',
+                  cursor: removingMember ? 'not-allowed' : 'pointer',
+                  padding: '4px',
+                  borderRadius: 'var(--radius-sm)',
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                Are you sure you want to remove <strong>{memberToRemove.name}</strong> from <strong>{group.name}</strong>? They will lose access to all messages, files, and calls in this workspace.
+              </p>
+
+              {removeError && (
+                <div
+                  style={{
+                    padding: '10px 14px',
+                    backgroundColor: 'var(--danger-bg)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    color: 'var(--danger)',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  {removeError}
+                </div>
+              )}
+            </div>
+
+            <div
+              style={{
+                padding: '14px 20px',
+                borderTop: '1px solid var(--border-subtle)',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '10px',
+                backgroundColor: 'var(--bg-surface-elevated)',
+              }}
+            >
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setMemberToRemove(null)}
+                disabled={removingMember}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleConfirmRemoveMember}
+                loading={removingMember}
+                disabled={removingMember}
+              >
+                Remove Member
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <DeleteGroupModal
         isOpen={isDeleteOpen}

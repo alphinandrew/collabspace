@@ -81,9 +81,9 @@ class GroupRepository {
       FROM group_members gm
       INNER JOIN users u ON gm.user_id = u.id
       INNER JOIN groups g ON gm.group_id = g.id
-      WHERE gm.group_id = ? AND gm.user_id = ? AND (g.is_deleted IS NULL OR g.is_deleted = 0)
+      WHERE gm.group_id = ? AND (gm.user_id = ? OR gm.id = ?) AND (g.is_deleted IS NULL OR g.is_deleted = 0)
     `;
-    return await db.get(sql, [groupId, userId]);
+    return await db.get(sql, [groupId, userId, userId]);
   }
 
   async listMembers(groupId) {
@@ -108,8 +108,8 @@ class GroupRepository {
   async updateMemberRole(groupId, userId, role) {
     const db = await getDatabase();
     await db.run(
-      `UPDATE group_members SET role = ? WHERE group_id = ? AND user_id = ?`,
-      [role, groupId, userId]
+      `UPDATE group_members SET role = ? WHERE group_id = ? AND (user_id = ? OR id = ?)`,
+      [role, groupId, userId, userId]
     );
     return await this.findMember(groupId, userId);
   }
@@ -117,8 +117,8 @@ class GroupRepository {
   async removeMember(groupId, userId) {
     const db = await getDatabase();
     await db.run(
-      `DELETE FROM group_members WHERE group_id = ? AND user_id = ?`,
-      [groupId, userId]
+      `DELETE FROM group_members WHERE group_id = ? AND (user_id = ? OR id = ?)`,
+      [groupId, userId, userId]
     );
     return true;
   }

@@ -7,6 +7,16 @@ async function requireGroupMember(req, res, next) {
       return res.status(400).json({ error: 'Group identifier is required.' });
     }
 
+    const group = await groupRepository.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ error: 'Group not found.' });
+    }
+
+    if (group.owner_id === req.user.id) {
+      req.membership = { role: 'owner', group_id: groupId, user_id: req.user.id };
+      return next();
+    }
+
     const membership = await groupRepository.findMember(groupId, req.user.id);
     if (!membership) {
       return res.status(403).json({ error: 'Access denied. You are not a member of this group.' });
@@ -25,6 +35,16 @@ async function requireGroupAdmin(req, res, next) {
     const groupId = req.params.groupId || req.body.groupId || req.query.groupId;
     if (!groupId) {
       return res.status(400).json({ error: 'Group identifier is required.' });
+    }
+
+    const group = await groupRepository.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ error: 'Group not found.' });
+    }
+
+    if (group.owner_id === req.user.id) {
+      req.membership = { role: 'owner', group_id: groupId, user_id: req.user.id };
+      return next();
     }
 
     const membership = await groupRepository.findMember(groupId, req.user.id);
