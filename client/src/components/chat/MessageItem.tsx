@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Avatar } from '../common/Avatar';
 import { AttachmentCard } from './AttachmentCard';
-import { Message } from '../../services/api';
+import { Message, api } from '../../services/api';
 import { EmojiPicker } from './EmojiPicker';
+import { MemberContextMenu } from '../common/MemberContextMenu';
+import { useGroup } from '../../context/GroupContext';
 import {
   Check,
   CheckCheck,
@@ -43,7 +45,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   onForward,
   onDelete,
 }) => {
+  const { activeGroup, activeMembers, refreshActiveGroupMembers } = useGroup();
   const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [memberContextMenuPos, setMemberContextMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [showFullPicker, setShowFullPicker] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -51,6 +55,34 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const touchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchMovedRef = useRef<boolean>(false);
+
+  // Look up sender details in active members
+  const senderMember = activeMembers.find((m) => m.id === message.sender_id) || {
+    id: message.sender_id,
+    name: message.sender_name,
+    avatar: message.sender_avatar,
+    role: 'member',
+  };
+
+  const currentUserMembership = activeMembers.find((m) => m.id === currentUserId);
+  const isOwner = activeGroup?.owner_id === currentUserId || currentUserMembership?.role === 'owner';
+  const isAdmin = isOwner || currentUserMembership?.role === 'admin';
+
+  const handleSenderContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMemberContextMenuPos({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMakeAdmin = async (userId: string) => {
+    await api.updateMemberRole(groupId, userId, 'admin');
+    await refreshActiveGroupMembers();
+  };
+
+  const handleDemoteMember = async (userId: string) => {
+    await api.updateMemberRole(groupId, userId, 'member');
+    await refreshActiveGroupMembers();
+  };
 
   const formatTime = (isoString: string): string => {
     try {
@@ -173,7 +205,13 @@ export const MessageItem: React.FC<MessageItemProps> = ({
     >
       {/* Avatar (for peers only) */}
       {!isCurrentUser && (
-        <Avatar name={message.sender_name} src={message.sender_avatar} size="sm" />
+        <div
+          onContextMenu={handleSenderContextMenu}
+          style={{ cursor: 'context-menu' }}
+          title={`Right-click ${message.sender_name} to manage member or make admin`}
+        >
+          <Avatar name={message.sender_name} src={message.sender_avatar} size="sm" />
+        </div>
       )}
 
       {/* Bubble & Actions Container */}
@@ -197,7 +235,21 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               paddingLeft: '2px',
             }}
           >
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            <span
+              onContextMenu={handleSenderContextMenu}
+              style={{
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                color: 'var(--text-secondary)',
+                cursor: 'context-menu',
+                padding: '1px 4px',
+                borderRadius: '4px',
+                transition: 'background-color var(--transition-fast)',
+              }}
+              title={`Right-click ${message.sender_name} to manage member or make admin`}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+            >
               {message.sender_name}
             </span>
             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
@@ -574,6 +626,20 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             )}
           </div>
         </div>
+      )}
+
+      {memberContextMenuPos && (
+        <MemberContextMenu
+          x={memberContextMenuPos.x}
+          y={memberContextMenuPos.y}
+          member={senderMember}
+          isOwner={isOwner}
+          isAdmin={isAdmin}
+          isSelf={message.sender_id === currentUserId}
+          onMakeAdmin={handleMakeAdmin}
+          onDemoteMember={handleDemoteMember}
+          onClose={() => setMemberContextMenuPos(null)}
+        />
       )}
     </div>
   );

@@ -3,6 +3,7 @@ import { Avatar } from '../common/Avatar';
 import { Badge } from '../common/Badge';
 import { Button } from '../common/Button';
 import { DeleteGroupModal } from '../common/DeleteGroupModal';
+import { MemberContextMenu } from '../common/MemberContextMenu';
 import { Group, Member, api } from '../../services/api';
 import { X, QrCode, Phone, Video, Trash2, UserX } from 'lucide-react';
 import { useCall } from '../../context/CallContext';
@@ -31,10 +32,35 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
   const [removingMember, setRemovingMember] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const [memberContextMenu, setMemberContextMenu] = useState<{
+    x: number;
+    y: number;
+    member: Member;
+  } | null>(null);
 
   const currentUserMembership = members.find((m) => m.id === user?.id);
   const isOwner = group.owner_id === user?.id || currentUserMembership?.role === 'owner';
   const isAdmin = isOwner || currentUserMembership?.role === 'admin';
+
+  const handleMakeAdmin = async (userId: string) => {
+    await api.updateMemberRole(group.id, userId, 'admin');
+    await refreshActiveGroupMembers();
+  };
+
+  const handleDemoteMember = async (userId: string) => {
+    await api.updateMemberRole(group.id, userId, 'member');
+    await refreshActiveGroupMembers();
+  };
+
+  const handleMemberContextMenu = (e: React.MouseEvent, member: Member) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMemberContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      member,
+    });
+  };
 
   const handleConfirmRemoveMember = async () => {
     if (!memberToRemove) return;
@@ -195,6 +221,7 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
               return (
                 <div
                   key={member.id}
+                  onContextMenu={(e) => handleMemberContextMenu(e, member)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -202,7 +229,12 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
                     padding: '6px 8px',
                     borderRadius: 'var(--radius-sm)',
                     backgroundColor: 'var(--bg-surface)',
+                    cursor: 'context-menu',
+                    transition: 'background-color var(--transition-fast)',
                   }}
+                  title="Right-click to manage member or make admin"
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-surface)')}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                     <Avatar name={member.name} size="sm" status={member.status} />
@@ -404,6 +436,24 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
         onClose={() => setIsDeleteOpen(false)}
         group={group}
       />
+
+      {memberContextMenu && (
+        <MemberContextMenu
+          x={memberContextMenu.x}
+          y={memberContextMenu.y}
+          member={memberContextMenu.member}
+          isOwner={isOwner}
+          isAdmin={isAdmin}
+          isSelf={memberContextMenu.member.id === user?.id}
+          onMakeAdmin={handleMakeAdmin}
+          onDemoteMember={handleDemoteMember}
+          onRemoveMember={(m) => {
+            setRemoveError(null);
+            setMemberToRemove(m);
+          }}
+          onClose={() => setMemberContextMenu(null)}
+        />
+      )}
     </aside>
   );
 };

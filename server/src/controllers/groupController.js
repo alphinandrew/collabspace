@@ -330,16 +330,46 @@ class GroupController {
         return res.status(400).json({ error: 'Invalid role. Must be admin or member.' });
       }
 
+      const group = await groupRepository.findById(groupId);
+      if (!group) {
+        return res.status(404).json({ error: 'Group not found.' });
+      }
+
       const targetMember = await groupRepository.findMember(groupId, userId);
       if (!targetMember) {
         return res.status(404).json({ error: 'Member not found in this group.' });
       }
 
-      if (targetMember.role === 'owner') {
+      const targetUserId = targetMember.user_id;
+
+      if (targetMember.role === 'owner' || targetUserId === group.owner_id) {
         return res.status(403).json({ error: 'Cannot modify the group owner role.' });
       }
 
-      const updated = await groupRepository.updateMemberRole(groupId, userId, role);
+      // Check caller authority
+      const isCallerOwner = group.owner_id === req.user.id || req.membership?.role === 'owner';
+      if (!isCallerOwner && targetMember.role === 'admin') {
+        return res.status(403).json({ error: 'Administrators cannot demote other administrators. Only the group owner can.' });
+      }
+
+      const updated = await groupRepository.updateMemberRole(groupId, targetUserId, role);
+
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`group_${groupId}`).emit('group:member_updated', {
+          groupId,
+          userId: targetUserId,
+          role,
+          member: updated,
+        });
+        io.to(`user_${targetUserId}`).emit('group:member_updated', {
+          groupId,
+          userId: targetUserId,
+          role,
+          member: updated,
+        });
+      }
+
       return res.json({ message: 'Member role updated.', member: updated });
     } catch (err) {
       console.error('Update member role error:', err);

@@ -3,6 +3,7 @@ import { Avatar } from '../common/Avatar';
 import { Badge } from '../common/Badge';
 import { Button } from '../common/Button';
 import { DeleteGroupModal } from '../common/DeleteGroupModal';
+import { MemberContextMenu } from '../common/MemberContextMenu';
 import { Group, Member, api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useGroup } from '../../context/GroupContext';
@@ -21,6 +22,11 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
   const [removingMember, setRemovingMember] = useState(false);
   const [removeModalError, setRemoveModalError] = useState<string | null>(null);
   const [isDeleteGroupOpen, setIsDeleteGroupOpen] = useState(false);
+  const [memberContextMenu, setMemberContextMenu] = useState<{
+    x: number;
+    y: number;
+    member: Member;
+  } | null>(null);
 
   // Determine current user's role in this group
   const currentUserMembership = activeMembers.find((m) => m.id === user?.id);
@@ -36,6 +42,16 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
     } catch (err: any) {
       setActionError(err.message || 'Failed to update member role.');
     }
+  };
+
+  const handleMemberContextMenu = (e: React.MouseEvent, member: Member) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMemberContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      member,
+    });
   };
 
   const confirmRemoveMember = async () => {
@@ -115,6 +131,7 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
           return (
             <div
               key={member.id}
+              onContextMenu={(e) => handleMemberContextMenu(e, member)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -124,7 +141,10 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
                 border: '1px solid var(--border-subtle)',
                 borderRadius: 'var(--radius-md)',
                 boxShadow: 'var(--shadow-sm)',
+                cursor: 'context-menu',
+                transition: 'border-color var(--transition-fast), background-color var(--transition-fast)',
               }}
+              title="Right-click to manage member or make admin"
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                 <Avatar name={member.name} src={member.avatar} size="md" status={member.status} />
@@ -438,6 +458,25 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
         onClose={() => setIsDeleteGroupOpen(false)}
         group={group}
       />
+
+      {memberContextMenu && (
+        <MemberContextMenu
+          x={memberContextMenu.x}
+          y={memberContextMenu.y}
+          member={memberContextMenu.member}
+          isOwner={isOwner}
+          isAdmin={isAdmin}
+          isSelf={memberContextMenu.member.id === user?.id}
+          onMakeAdmin={(userId) => handleRoleChange(userId, 'admin')}
+          onDemoteMember={(userId) => handleRoleChange(userId, 'member')}
+          onRemoveMember={(m) => {
+            setActionError(null);
+            setRemoveModalError(null);
+            setMemberToRemove(m);
+          }}
+          onClose={() => setMemberContextMenu(null)}
+        />
+      )}
     </div>
   );
 };

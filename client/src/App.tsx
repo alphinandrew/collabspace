@@ -159,12 +159,23 @@ const GroupSocketSubscriber: React.FC = () => {
       refreshGroups();
     };
 
+    const handleMemberUpdated = ({ groupId, userId }: any) => {
+      if (activeGroup?.id === groupId) {
+        refreshActiveGroupMembers();
+      }
+      if (userId === user?.id) {
+        refreshGroups();
+      }
+    };
+
     socket.on('group:member_removed', handleMemberRemoved);
     socket.on('group:deleted', handleGroupDeleted);
+    socket.on('group:member_updated', handleMemberUpdated);
 
     return () => {
       socket.off('group:member_removed', handleMemberRemoved);
       socket.off('group:deleted', handleGroupDeleted);
+      socket.off('group:member_updated', handleMemberUpdated);
     };
   }, [socket, user?.id, activeGroup?.id, refreshGroups, refreshActiveGroupMembers]);
 
