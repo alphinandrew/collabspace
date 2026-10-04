@@ -20,10 +20,10 @@ const config = {
     sqlitePath: path.resolve(process.cwd(), process.env.DB_SQLITE_PATH || './data/collabspace.db'),
   },
   webrtc: {
-    stunUrl: process.env.STUN_SERVER_URL || 'stun:stun.l.google.com:19302',
-    turnUrl: process.env.TURN_SERVER_URL || '',
-    turnUsername: process.env.TURN_USERNAME || '',
-    turnCredential: process.env.TURN_CREDENTIAL || '',
+    stunUrl: process.env.STUN_SERVER_URL || process.env.STUN_URL || 'stun:stun.l.google.com:19302',
+    turnUrl: process.env.TURN_SERVER_URL || process.env.TURN_URL || '',
+    turnUsername: process.env.TURN_USERNAME || process.env.TURN_USER || '',
+    turnCredential: process.env.TURN_CREDENTIAL || process.env.TURN_PASSWORD || process.env.TURN_SECRET || '',
   }
 };
 

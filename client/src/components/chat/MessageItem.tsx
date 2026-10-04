@@ -280,7 +280,11 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             fontSize: isEmojiOnly ? '2.2rem' : '0.9rem',
             lineHeight: isEmojiOnly ? 1.2 : 1.45,
             wordBreak: 'break-word',
-            boxShadow: isEmojiOnly ? 'none' : 'var(--shadow-sm)',
+            boxShadow: isEmojiOnly
+              ? 'none'
+              : isCurrentUser
+              ? '0 2px 12px rgba(124, 92, 255, 0.28)'
+              : 'var(--shadow-sm)',
             position: 'relative',
             cursor: 'default',
             outline: 'none',
@@ -294,7 +298,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 alignItems: 'center',
                 gap: '5px',
                 fontSize: '0.72rem',
-                color: isCurrentUser ? 'rgba(255, 255, 255, 0.85)' : 'var(--brand-primary)',
+                color: isCurrentUser ? 'rgba(255, 255, 255, 0.85)' : 'var(--accent-cyan)',
                 marginBottom: '6px',
                 fontWeight: 600,
               }}
@@ -342,24 +346,40 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '4px',
+                    gap: '5px',
                     padding: '2px 8px',
                     borderRadius: '12px',
                     backgroundColor: hasReacted
                       ? 'var(--brand-primary-light)'
                       : 'var(--bg-surface-elevated)',
                     border: hasReacted
-                      ? '1px solid var(--brand-primary)'
+                      ? '1px solid var(--brand-primary-border)'
                       : '1px solid var(--border-subtle)',
-                    color: hasReacted ? 'var(--brand-primary)' : 'var(--text-secondary)',
+                    color: hasReacted ? 'var(--text-primary)' : 'var(--text-secondary)',
                     fontSize: '0.78rem',
                     fontWeight: 500,
                     cursor: 'pointer',
                     transition: 'all var(--transition-fast)',
                   }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--accent-cyan-border)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = hasReacted
+                      ? 'var(--brand-primary-border)'
+                      : 'var(--border-subtle)';
+                  }}
                 >
                   <span>{rxn.emoji}</span>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 600 }}>{rxn.count}</span>
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      color: hasReacted ? 'var(--accent-cyan)' : 'inherit',
+                    }}
+                  >
+                    {rxn.count}
+                  </span>
                 </button>
               );
             })}
@@ -396,7 +416,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 Failed <RotateCcw size={10} />
               </span>
             )}
-            {!message.status && <CheckCheck size={12} color="var(--brand-primary)" />}
+            {!message.status && <CheckCheck size={12} color="var(--accent-cyan)" />}
           </div>
         )}
       </div>

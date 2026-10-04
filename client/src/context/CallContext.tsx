@@ -56,22 +56,6 @@ const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
       'stun:stun4.l.google.com:19302',
     ],
   },
-  { urls: 'stun:stun.relay.metered.ca:80' },
-  {
-    urls: 'turn:standard.relay.metered.ca:80',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-  {
-    urls: 'turn:standard.relay.metered.ca:443',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-  {
-    urls: 'turn:standard.relay.metered.ca:443?transport=tcp',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
 ];
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
@@ -171,6 +155,49 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Helper to log stats for a peer connection
+  const logPeerStats = async (targetSocketId: string, pc: RTCPeerConnection) => {
+    try {
+      const stats = await pc.getStats();
+      let activeCandidatePair: any = null;
+      let localCandidate: any = null;
+      let remoteCandidate: any = null;
+      const inboundVideos: any[] = [];
+      const outboundVideos: any[] = [];
+
+      stats.forEach((report) => {
+        if (report.type === 'transport' && report.selectedCandidatePairId) {
+          activeCandidatePair = stats.get(report.selectedCandidatePairId);
+        } else if (report.type === 'candidate-pair' && report.state === 'succeeded' && !activeCandidatePair) {
+          activeCandidatePair = report;
+        } else if (report.type === 'inbound-rtp' && report.kind === 'video') {
+          inboundVideos.push(report);
+        } else if (report.type === 'outbound-rtp' && report.kind === 'video') {
+          outboundVideos.push(report);
+        }
+      });
+
+      if (activeCandidatePair) {
+        localCandidate = stats.get(activeCandidatePair.localCandidateId);
+        remoteCandidate = stats.get(activeCandidatePair.remoteCandidateId);
+      }
+
+      console.log(`[WebRTC Stats] Peer ${targetSocketId}:`);
+      console.log(`  Candidate Pair State: ${activeCandidatePair?.state || 'unknown'}`);
+      console.log(`  Local Candidate: ${localCandidate?.candidateType || 'unknown'} (${localCandidate?.protocol || ''} ${localCandidate?.address || ''}:${localCandidate?.port || ''})`);
+      console.log(`  Remote Candidate: ${remoteCandidate?.candidateType || 'unknown'} (${remoteCandidate?.protocol || ''} ${remoteCandidate?.address || ''}:${remoteCandidate?.port || ''})`);
+      
+      inboundVideos.forEach((inb) => {
+        console.log(`  Inbound Video: bytesReceived=${inb.bytesReceived}, packetsReceived=${inb.packetsReceived}, framesDecoded=${inb.framesDecoded || 0}, jitter=${inb.jitter || 0}`);
+      });
+      outboundVideos.forEach((outb) => {
+        console.log(`  Outbound Video: bytesSent=${outb.bytesSent}, packetsSent=${outb.packetsSent}, framesEncoded=${outb.framesEncoded || 0}`);
+      });
+    } catch (err) {
+      console.warn('[WebRTC Stats] Could not read stats:', err);
+    }
+  };
+
   // Helper to create RTCPeerConnection for a remote peer
   const createPeerConnection = (targetSocketId: string, stream: MediaStream): RTCPeerConnection => {
     const pc = new RTCPeerConnection({
@@ -187,12 +214,39 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Handle remote track received
     pc.ontrack = (event) => {
-      const [remoteMediaStream] = event.streams;
+      console.log(`[WebRTC] Remote track received from ${targetSocketId}: kind=${event.track.kind}, id=${event.track.id}, readyState=${event.track.readyState}, enabled=${event.track.enabled}`);
+      
+      // Determine the stream: Unified Plan may provide event.streams[0], or event.track
+      const incomingStream = (event.streams && event.streams[0]) ? event.streams[0] : null;
+
       setRemoteParticipants((prev) => {
         const next = new Map(prev);
         const existing = next.get(targetSocketId);
+        let finalStream: MediaStream;
+
+        if (existing?.stream) {
+          finalStream = existing.stream;
+          const hasTrack = finalStream.getTracks().some((t) => t.id === event.track.id);
+          if (!hasTrack) {
+            finalStream.addTrack(event.track);
+          }
+          finalStream = new MediaStream(finalStream.getTracks());
+        } else if (incomingStream) {
+          finalStream = new MediaStream(incomingStream.getTracks());
+        } else {
+          finalStream = new MediaStream([event.track]);
+        }
+
         if (existing) {
-          next.set(targetSocketId, { ...existing, stream: remoteMediaStream });
+          next.set(targetSocketId, { ...existing, stream: finalStream });
+        } else {
+          next.set(targetSocketId, {
+            socketId: targetSocketId,
+            user: { id: targetSocketId, name: 'Participant', email: '', avatar: null, role: 'member' } as any,
+            stream: finalStream,
+            isMuted: false,
+            isCameraOff: false,
+          });
         }
         return next;
       });
@@ -208,12 +262,17 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
+    pc.onicecandidateerror = (event: any) => {
+      console.warn(`[WebRTC] ICE candidate error with ${targetSocketId}: code=${event.errorCode} text="${event.errorText}" url=${event.url}`);
+    };
+
     // Connection state logging & state machine synchronization
     pc.onconnectionstatechange = async () => {
       console.log(`[WebRTC] Peer ${targetSocketId} connectionState: ${pc.connectionState}`);
       if (pc.connectionState === 'connected') {
         setCallStatus('connected');
         setErrorMessage(null);
+        logPeerStats(targetSocketId, pc);
       } else if (pc.connectionState === 'failed') {
         // Attempt automatic ICE restart with this peer before declaring failure
         try {
@@ -246,6 +305,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
         setCallStatus('connected');
         setErrorMessage(null);
+        logPeerStats(targetSocketId, pc);
       }
     };
 
@@ -591,11 +651,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log(`[WebRTC] Peer joined: ${peerUser.name} (${socketId})`);
       setRemoteParticipants((prev) => {
         const next = new Map(prev);
+        const existing = next.get(socketId);
         next.set(socketId, {
           socketId,
           user: peerUser,
-          isMuted: pMuted,
-          isCameraOff: pCamOff,
+          isMuted: pMuted !== undefined ? pMuted : (existing?.isMuted ?? false),
+          isCameraOff: pCamOff !== undefined ? pCamOff : (existing?.isCameraOff ?? false),
+          isScreenSharing: existing?.isScreenSharing ?? false,
+          stream: existing?.stream,
         });
         return next;
       });
@@ -614,6 +677,21 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
+      // Ensure caller is pre-registered in remoteParticipants before creating PC / setting remote description
+      setRemoteParticipants((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(callerSocketId);
+        next.set(callerSocketId, {
+          socketId: callerSocketId,
+          user: callerUser,
+          isMuted: existing?.isMuted ?? false,
+          isCameraOff: existing?.isCameraOff ?? false,
+          isScreenSharing: existing?.isScreenSharing ?? false,
+          stream: existing?.stream,
+        });
+        return next;
+      });
+
       const pc = peerConnections.current.get(callerSocketId) || createPeerConnection(callerSocketId, stream);
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
       await drainIceCandidates(callerSocketId, pc);
@@ -622,19 +700,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await pc.setLocalDescription(answer);
 
       socket.emit('call:answer', { targetSocketId: callerSocketId, answer });
-
-      setRemoteParticipants((prev) => {
-        const next = new Map(prev);
-        if (!next.has(callerSocketId)) {
-          next.set(callerSocketId, {
-            socketId: callerSocketId,
-            user: callerUser,
-            isMuted: false,
-            isCameraOff: false,
-          });
-        }
-        return next;
-      });
     };
 
     // Handle incoming WebRTC Answer

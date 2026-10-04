@@ -113,6 +113,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            transition: 'all var(--transition-fast)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'var(--accent-cyan-border)';
+            e.currentTarget.style.color = 'var(--accent-cyan)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'var(--border-subtle)';
+            e.currentTarget.style.color = 'var(--text-secondary)';
           }}
           title="Search messages, files, members"
         >
@@ -153,10 +162,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               height: '24px',
               borderRadius: 'var(--radius-sm)',
               background: 'var(--brand-primary-light)',
-              border: '1px solid rgba(99, 102, 241, 0.3)',
+              border: '1px solid var(--brand-primary-border)',
               color: 'var(--brand-primary)',
               cursor: 'pointer',
               transition: 'all var(--transition-fast)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--brand-primary)';
+              e.currentTarget.style.color = '#FFFFFF';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'var(--brand-primary-light)';
+              e.currentTarget.style.color = 'var(--brand-primary)';
             }}
             title="Join or Create a Workspace Group"
           >
@@ -255,6 +272,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               key={group.id}
               onClick={() => selectGroup(group)}
               style={{
+                position: 'relative',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '10px',
@@ -262,16 +280,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 borderRadius: 'var(--radius-md)',
                 background: isSelected ? 'var(--bg-surface-elevated)' : 'transparent',
                 border: isSelected ? '1px solid var(--border-highlight)' : '1px solid transparent',
+                borderLeft: isSelected ? '3px solid var(--brand-primary)' : '3px solid transparent',
+                boxShadow: isSelected ? '0 2px 8px rgba(0, 0, 0, 0.25), 0 0 12px rgba(124, 92, 255, 0.12)' : 'none',
                 color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
                 cursor: 'pointer',
                 textAlign: 'left',
                 transition: 'all var(--transition-fast)',
               }}
               onMouseEnter={(e) => {
-                if (!isSelected) e.currentTarget.style.background = 'var(--bg-surface-hover)';
+                if (!isSelected) {
+                  e.currentTarget.style.background = 'var(--bg-surface-hover)';
+                  e.currentTarget.style.color = 'var(--text-primary)';
+                }
               }}
               onMouseLeave={(e) => {
-                if (!isSelected) e.currentTarget.style.background = 'transparent';
+                if (!isSelected) {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                }
               }}
             >
               <Avatar name={group.name} size="sm" />
@@ -287,7 +313,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   {group.name}
                 </div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                <div
+                  style={{
+                    fontSize: '0.7rem',
+                    color: isSelected ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                    fontFamily: 'var(--font-mono)',
+                    letterSpacing: '0.02em',
+                  }}
+                >
                   {group.join_code}
                 </div>
               </div>
@@ -323,12 +356,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               style={{
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'space-between',
                 gap: '12px',
                 padding: '10px 14px',
                 borderRadius: 'var(--radius-md)',
                 background: isActive ? 'var(--brand-primary-light)' : 'transparent',
-                border: 'none',
-                color: isActive ? 'var(--brand-primary)' : 'var(--text-secondary)',
+                border: isActive ? '1px solid var(--brand-primary-border)' : '1px solid transparent',
+                borderLeft: isActive ? '3px solid var(--brand-primary)' : '3px solid transparent',
+                color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
                 fontWeight: isActive ? 600 : 500,
                 fontSize: '0.9rem',
                 cursor: 'pointer',
@@ -336,14 +371,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 textAlign: 'left',
               }}
               onMouseEnter={(e) => {
-                if (!isActive) e.currentTarget.style.background = 'var(--bg-surface-hover)';
+                if (!isActive) {
+                  e.currentTarget.style.background = 'var(--bg-surface-hover)';
+                  e.currentTarget.style.color = 'var(--text-primary)';
+                }
               }}
               onMouseLeave={(e) => {
-                if (!isActive) e.currentTarget.style.background = 'transparent';
+                if (!isActive) {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = 'var(--text-secondary)';
+                }
               }}
             >
-              {item.icon}
-              {item.label}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ color: isActive ? 'var(--brand-primary)' : 'inherit', display: 'flex', alignItems: 'center' }}>
+                  {item.icon}
+                </span>
+                <span>{item.label}</span>
+              </div>
+              {isActive && (
+                <span
+                  style={{
+                    width: '5px',
+                    height: '5px',
+                    borderRadius: '50%',
+                    backgroundColor: 'var(--accent-cyan)',
+                    boxShadow: 'var(--accent-cyan-glow)',
+                  }}
+                />
+              )}
             </button>
           );
         })}

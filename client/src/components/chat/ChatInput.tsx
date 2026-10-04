@@ -24,6 +24,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState<boolean>(false);
+  const [isFocused, setIsFocused] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const isSendingRef = useRef(false);
@@ -241,10 +242,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           alignItems: 'flex-end',
           gap: '10px',
           backgroundColor: 'var(--bg-app)',
-          border: '1px solid var(--border-subtle)',
+          border: isFocused ? '1px solid var(--border-focus)' : '1px solid var(--border-subtle)',
           borderRadius: 'var(--radius-lg)',
           padding: '8px 12px',
-          transition: 'border-color var(--transition-fast)',
+          boxShadow: isFocused
+            ? '0 0 0 3px rgba(124, 92, 255, 0.22), 0 4px 18px rgba(0, 0, 0, 0.35)'
+            : 'var(--shadow-sm)',
+          transition: 'all var(--transition-fast)',
         }}
       >
         {/* Hidden File Picker */}
@@ -270,7 +274,19 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            transition: 'color var(--transition-fast)',
+            transition: 'all var(--transition-fast)',
+          }}
+          onMouseEnter={(e) => {
+            if (!disabled) {
+              e.currentTarget.style.color = 'var(--accent-cyan)';
+              e.currentTarget.style.background = 'var(--accent-cyan-light)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!disabled) {
+              e.currentTarget.style.color = 'var(--text-secondary)';
+              e.currentTarget.style.background = 'transparent';
+            }
           }}
           title="Share document or file"
         >
@@ -283,7 +299,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           disabled={disabled}
           onClick={() => setShowEmojiPicker(!showEmojiPicker)}
           style={{
-            background: 'transparent',
+            background: showEmojiPicker ? 'var(--brand-primary-light)' : 'transparent',
             border: 'none',
             color: showEmojiPicker ? 'var(--brand-primary)' : 'var(--text-secondary)',
             cursor: disabled ? 'not-allowed' : 'pointer',
@@ -292,7 +308,19 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            transition: 'color var(--transition-fast)',
+            transition: 'all var(--transition-fast)',
+          }}
+          onMouseEnter={(e) => {
+            if (!disabled && !showEmojiPicker) {
+              e.currentTarget.style.color = 'var(--brand-primary)';
+              e.currentTarget.style.background = 'var(--brand-primary-light)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!disabled && !showEmojiPicker) {
+              e.currentTarget.style.color = 'var(--text-secondary)';
+              e.currentTarget.style.background = 'transparent';
+            }
           }}
           title="Insert emoji"
         >
@@ -307,6 +335,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           disabled={disabled}
           onChange={handleTextChange}
           onKeyDown={handleKeyDown}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           style={{
             flex: 1,
             background: 'transparent',
@@ -332,11 +362,24 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             width: '34px',
             height: '34px',
             borderRadius: 'var(--radius-md)',
-            background: text.trim() ? 'var(--brand-primary)' : 'var(--bg-surface-elevated)',
+            background: text.trim() ? 'var(--brand-gradient)' : 'var(--bg-surface-elevated)',
             border: 'none',
             color: text.trim() ? '#FFFFFF' : 'var(--text-muted)',
             cursor: text.trim() && !sending ? 'pointer' : 'default',
+            boxShadow: text.trim() ? '0 2px 10px rgba(124, 92, 255, 0.4)' : 'none',
             transition: 'all var(--transition-fast)',
+          }}
+          onMouseEnter={(e) => {
+            if (text.trim() && !sending) {
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 4px 14px rgba(124, 92, 255, 0.5)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (text.trim() && !sending) {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 2px 10px rgba(124, 92, 255, 0.4)';
+            }
           }}
         >
           <Send size={15} />

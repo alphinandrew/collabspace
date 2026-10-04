@@ -38,8 +38,8 @@ export const Modal: React.FC<ModalProps> = ({
         alignItems: 'center',
         justifyContent: 'center',
         padding: '16px',
-        backgroundColor: 'rgba(3, 7, 18, 0.75)',
-        backdropFilter: 'blur(6px)',
+        backgroundColor: 'rgba(8, 11, 22, 0.78)',
+        backdropFilter: 'blur(8px)',
       }}
       onClick={onClose}
     >
@@ -51,7 +51,7 @@ export const Modal: React.FC<ModalProps> = ({
           backgroundColor: 'var(--bg-surface)',
           border: '1px solid var(--border-subtle)',
           borderRadius: 'var(--radius-lg)',
-          boxShadow: 'var(--shadow-lg)',
+          boxShadow: 'var(--shadow-xl)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
@@ -84,6 +84,15 @@ export const Modal: React.FC<ModalProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                transition: 'all var(--transition-fast)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'var(--text-primary)';
+                e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'var(--text-secondary)';
+                e.currentTarget.style.backgroundColor = 'transparent';
               }}
               aria-label="Close dialog"
             >

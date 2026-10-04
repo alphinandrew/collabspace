@@ -41,7 +41,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
               alignItems: 'center',
               justifyContent: 'center',
               color: '#FFFFFF',
-              boxShadow: '0 0 10px rgba(99, 102, 241, 0.5)',
+              boxShadow: 'var(--shadow-glow)',
             }}
           >
             {incomingCall.callType === 'video' ? <Video size={13} /> : <Phone size={13} />}

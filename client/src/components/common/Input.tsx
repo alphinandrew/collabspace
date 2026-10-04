@@ -66,14 +66,20 @@ export const Input: React.FC<InputProps> = ({
             color: 'var(--text-primary)',
             fontSize: '0.9rem',
             outline: 'none',
-            transition: 'border-color var(--transition-fast)',
+            transition: 'border-color var(--transition-fast), box-shadow var(--transition-fast)',
             ...style,
           }}
           onFocus={(e) => {
-            if (!error) e.currentTarget.style.borderColor = 'var(--border-focus)';
+            if (!error) {
+              e.currentTarget.style.borderColor = 'var(--border-focus)';
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(124, 92, 255, 0.22)';
+            }
           }}
           onBlur={(e) => {
-            if (!error) e.currentTarget.style.borderColor = 'var(--border-subtle)';
+            if (!error) {
+              e.currentTarget.style.borderColor = 'var(--border-subtle)';
+              e.currentTarget.style.boxShadow = 'none';
+            }
           }}
           {...props}
         />

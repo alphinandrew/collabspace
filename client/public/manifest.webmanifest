@@ -4,8 +4,8 @@
   "description": "Centralized workspace for real-time team communication, WebRTC calls, and document collaboration.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#080C14",
-  "theme_color": "#6366F1",
+  "background_color": "#080B16",
+  "theme_color": "#7C5CFF",
   "orientation": "any",
   "icons": [
     {

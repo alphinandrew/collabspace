@@ -118,13 +118,16 @@ export const FileLibraryView: React.FC<FileLibraryViewProps> = ({ group }) => {
     if (m.startsWith('image/') || fn.endsWith('.png') || fn.endsWith('.jpg') || fn.endsWith('.jpeg')) {
       return <ImageIcon size={20} color="var(--brand-primary)" />;
     }
+    if (m.includes('pdf') || fn.endsWith('.pdf')) {
+      return <FileText size={20} color="var(--accent-cyan)" />;
+    }
     if (m.includes('spreadsheet') || fn.endsWith('.xls') || fn.endsWith('.xlsx') || fn.endsWith('.csv')) {
       return <FileSpreadsheet size={20} color="var(--success)" />;
     }
     if (m.includes('presentation') || fn.endsWith('.ppt') || fn.endsWith('.pptx')) {
       return <Presentation size={20} color="var(--warning)" />;
     }
-    return <FileText size={20} color="var(--brand-primary)" />;
+    return <FileText size={20} color="var(--text-secondary)" />;
   };
 
   const categories = [
@@ -274,36 +277,51 @@ export const FileLibraryView: React.FC<FileLibraryViewProps> = ({ group }) => {
                 cursor: 'pointer',
               }}
             >
-              <option value="newest" style={{ background: '#1E293B' }}>Newest First</option>
-              <option value="oldest" style={{ background: '#1E293B' }}>Oldest First</option>
-              <option value="filename" style={{ background: '#1E293B' }}>Filename (A-Z)</option>
-              <option value="size" style={{ background: '#1E293B' }}>File Size</option>
+              <option value="newest" style={{ background: 'var(--bg-surface-elevated)', color: 'var(--text-primary)' }}>Newest First</option>
+              <option value="oldest" style={{ background: 'var(--bg-surface-elevated)', color: 'var(--text-primary)' }}>Oldest First</option>
+              <option value="filename" style={{ background: 'var(--bg-surface-elevated)', color: 'var(--text-primary)' }}>Filename (A-Z)</option>
+              <option value="size" style={{ background: 'var(--bg-surface-elevated)', color: 'var(--text-primary)' }}>File Size</option>
             </select>
           </div>
         </div>
 
         {/* Category Filter Chips */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setCategory(cat.id)}
-              style={{
-                padding: '6px 12px',
-                borderRadius: 'var(--radius-full)',
-                fontSize: '0.8rem',
-                fontWeight: 500,
-                border: category === cat.id ? '1px solid var(--brand-primary)' : '1px solid var(--border-subtle)',
-                background: category === cat.id ? 'var(--brand-primary-light)' : 'var(--bg-surface)',
-                color: category === cat.id ? 'var(--brand-primary)' : 'var(--text-secondary)',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                transition: 'all var(--transition-fast)',
-              }}
-            >
-              {cat.label}
-            </button>
-          ))}
+          {categories.map((cat) => {
+            const isCatActive = category === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setCategory(cat.id)}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: 'var(--radius-full)',
+                  fontSize: '0.8rem',
+                  fontWeight: isCatActive ? 600 : 500,
+                  border: isCatActive ? '1px solid var(--brand-primary-border)' : '1px solid var(--border-subtle)',
+                  background: isCatActive ? 'var(--brand-primary-light)' : 'var(--bg-surface)',
+                  color: isCatActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  transition: 'all var(--transition-fast)',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isCatActive) {
+                    e.currentTarget.style.borderColor = 'var(--accent-cyan-border)';
+                    e.currentTarget.style.color = 'var(--text-primary)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isCatActive) {
+                    e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                    e.currentTarget.style.color = 'var(--text-secondary)';
+                  }
+                }}
+              >
+                {cat.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 

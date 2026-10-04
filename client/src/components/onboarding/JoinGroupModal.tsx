@@ -140,16 +140,16 @@ export const JoinGroupModal: React.FC<JoinGroupModalProps> = ({
             gap: '8px',
             padding: '8px',
             borderRadius: 'var(--radius-sm)',
-            border: 'none',
+            border: tab === 'code' ? '1px solid var(--brand-primary-border)' : '1px solid transparent',
             fontSize: '0.875rem',
             fontWeight: 500,
             cursor: 'pointer',
-            background: tab === 'code' ? 'var(--bg-surface-elevated)' : 'transparent',
+            background: tab === 'code' ? 'var(--brand-primary-light)' : 'transparent',
             color: tab === 'code' ? 'var(--text-primary)' : 'var(--text-muted)',
             transition: 'all var(--transition-fast)',
           }}
         >
-          <KeyRound size={16} />
+          <KeyRound size={16} color={tab === 'code' ? 'var(--brand-primary)' : 'inherit'} />
           Group Code
         </button>
         <button
@@ -166,16 +166,16 @@ export const JoinGroupModal: React.FC<JoinGroupModalProps> = ({
             gap: '8px',
             padding: '8px',
             borderRadius: 'var(--radius-sm)',
-            border: 'none',
+            border: tab === 'qr' ? '1px solid var(--brand-primary-border)' : '1px solid transparent',
             fontSize: '0.875rem',
             fontWeight: 500,
             cursor: 'pointer',
-            background: tab === 'qr' ? 'var(--bg-surface-elevated)' : 'transparent',
+            background: tab === 'qr' ? 'var(--brand-primary-light)' : 'transparent',
             color: tab === 'qr' ? 'var(--text-primary)' : 'var(--text-muted)',
             transition: 'all var(--transition-fast)',
           }}
         >
-          <QrCode size={16} />
+          <QrCode size={16} color={tab === 'qr' ? 'var(--brand-primary)' : 'inherit'} />
           Scan QR Code
         </button>
       </div>

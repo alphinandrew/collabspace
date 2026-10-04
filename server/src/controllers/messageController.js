@@ -41,9 +41,11 @@ class MessageController {
         content: content.trim(),
         messageType,
         fileId,
+        senderName: req.user.name,
+        senderAvatar: req.user.avatar,
       });
 
-      // Broadcast to group room
+      // Broadcast to group room immediately
       const io = req.app.get('io');
       if (io) {
         io.to(`group_${groupId}`).emit('chat:message', message);
@@ -66,28 +68,55 @@ class MessageController {
         return res.status(400).json({ error: 'Emoji is required.' });
       }
 
-      const message = await messageRepository.findById(messageId);
-      if (!message || message.group_id !== groupId) {
+      const { getDatabase } = require('../db/database');
+      const db = await getDatabase();
+
+      // Parallelize message existence/group check with existing reaction check (1 network roundtrip instead of 3 sequential)
+      const [msgCheck, existingReaction] = await Promise.all([
+        db.get(`SELECT id FROM messages WHERE id = ? AND group_id = ?`, [messageId, groupId]),
+        db.get(`SELECT id, emoji FROM message_reactions WHERE message_id = ? AND user_id = ?`, [messageId, userId]),
+      ]);
+
+      if (!msgCheck) {
         return res.status(404).json({ error: 'Message not found in this group.' });
       }
 
-      const result = await reactionRepository.toggleReaction({
-        messageId,
-        userId,
-        emoji: emoji.trim(),
-      });
+      const trimmedEmoji = emoji.trim();
+      let action = 'added';
+      const now = new Date().toISOString();
 
+      if (existingReaction) {
+        if (existingReaction.emoji === trimmedEmoji) {
+          action = 'removed';
+          await db.run(`DELETE FROM message_reactions WHERE id = ?`, [existingReaction.id]);
+        } else {
+          action = 'updated';
+          await db.run(
+            `UPDATE message_reactions SET emoji = ?, created_at = ? WHERE id = ?`,
+            [trimmedEmoji, now, existingReaction.id]
+          );
+        }
+      } else {
+        const rxnId = 'rxn_' + uuidv4().replace(/-/g, '').slice(0, 16);
+        await db.run(
+          `INSERT INTO message_reactions (id, message_id, user_id, emoji, created_at)
+           VALUES (?, ?, ?, ?, ?)`,
+          [rxnId, messageId, userId, trimmedEmoji, now]
+        );
+      }
+
+      // Fetch the updated reactions for this message
       const reactionMap = await reactionRepository.getReactionsForMessages([messageId]);
       const updatedReactions = reactionMap[messageId] || [];
 
-      // Broadcast realtime reaction event
+      // Broadcast realtime reaction event immediately
       const io = req.app.get('io');
       if (io) {
         io.to(`group_${groupId}`).emit('chat:reaction', {
           messageId,
           groupId,
-          emoji: emoji.trim(),
-          action: result.action,
+          emoji: trimmedEmoji,
+          action,
           userId,
           userName: req.user.name,
           reactions: updatedReactions,
@@ -96,8 +125,8 @@ class MessageController {
 
       return res.json({
         success: true,
-        action: result.action,
-        emoji: emoji.trim(),
+        action,
+        emoji: trimmedEmoji,
         reactions: updatedReactions,
       });
     } catch (err) {

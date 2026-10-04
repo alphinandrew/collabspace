@@ -51,6 +51,7 @@ const EMOJI_CATEGORIES = [
 export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onSelectEmoji }) => {
   const [activeTab, setActiveTab] = useState(0);
   const [search, setSearch] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   const filteredEmojis = useMemo(() => {
     if (!search.trim()) return null;
@@ -80,19 +81,22 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onSelectEmoji }) => {
       <div
         style={{
           padding: '10px 12px',
-          borderBottom: '1px solid var(--border-subtle)',
+          borderBottom: isSearchFocused ? '1px solid var(--border-focus)' : '1px solid var(--border-subtle)',
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
           backgroundColor: 'var(--bg-surface)',
+          transition: 'border-color var(--transition-fast)',
         }}
       >
-        <Search size={14} color="var(--text-muted)" />
+        <Search size={14} color={isSearchFocused ? 'var(--brand-primary)' : 'var(--text-muted)'} />
         <input
           type="text"
           placeholder="Search emojis..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onFocus={() => setIsSearchFocused(true)}
+          onBlur={() => setIsSearchFocused(false)}
           style={{
             flex: 1,
             background: 'transparent',
@@ -165,10 +169,10 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onSelectEmoji }) => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              transition: 'transform 0.1s ease, background-color 0.1s ease',
+              transition: 'transform 0.1s ease, background-color 0.15s ease',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
+              e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)';
               e.currentTarget.style.transform = 'scale(1.2)';
             }}
             onMouseLeave={(e) => {

@@ -259,7 +259,7 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
                         member.role === 'owner'
                           ? 'primary'
                           : member.role === 'admin'
-                          ? 'warning'
+                          ? 'cyan'
                           : 'neutral'
                       }
                     >

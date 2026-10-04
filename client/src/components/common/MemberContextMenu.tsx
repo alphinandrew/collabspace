@@ -179,7 +179,7 @@ export const MemberContextMenu: React.FC<MemberContextMenuProps> = ({
         </div>
         <Badge
           size="sm"
-          variant={isTargetOwner ? 'primary' : isTargetAdmin ? 'warning' : 'neutral'}
+          variant={isTargetOwner ? 'primary' : isTargetAdmin ? 'cyan' : 'neutral'}
         >
           {isTargetOwner ? (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
@@ -249,7 +249,7 @@ export const MemberContextMenu: React.FC<MemberContextMenuProps> = ({
             {loading ? (
               <Loader2 size={16} className="animate-spin" color="var(--brand-primary)" />
             ) : (
-              <ShieldCheck size={16} color="var(--warning)" />
+              <ShieldCheck size={16} color="var(--accent-cyan)" />
             )}
             <div>
               <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Make Admin</div>

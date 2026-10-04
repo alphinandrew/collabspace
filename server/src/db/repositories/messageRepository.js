@@ -13,6 +13,8 @@ class MessageRepository {
     forwardedFromMessageId = null,
     forwardedFromGroupId = null,
     forwardedFromSenderName = null,
+    senderName = null,
+    senderAvatar = null,
   }) {
     const db = await getDatabase();
     const now = new Date().toISOString();
@@ -43,6 +45,30 @@ class MessageRepository {
         `INSERT INTO attachments (id, message_id, file_id) VALUES (?, ?, ?)`,
         [attachmentId, id, fileId]
       );
+      return await this.findById(id);
+    }
+
+    if (senderName !== null && senderName !== undefined) {
+      return {
+        id,
+        group_id: groupId,
+        sender_id: senderId,
+        sender_name: senderName,
+        sender_avatar: senderAvatar || null,
+        content,
+        message_type: messageType,
+        forwarded_from_message_id: forwardedFromMessageId,
+        forwarded_from_group_id: forwardedFromGroupId,
+        forwarded_from_sender_name: forwardedFromSenderName,
+        created_at: now,
+        updated_at: now,
+        file_id: null,
+        filename: null,
+        mime_type: null,
+        file_size: null,
+        storage_key: null,
+        reactions: [],
+      };
     }
 
     return await this.findById(id);

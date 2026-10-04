@@ -15,52 +15,47 @@ const upload = require('./middleware/upload');
 
 // Public WebRTC configuration endpoint
 // Public WebRTC configuration endpoint
-router.get('/config/webrtc', (req, res) => {
+router.get('/config/webrtc', async (req, res) => {
   const iceServers = [];
 
-  // 1. Custom TURN server if configured in environment
+  // 1. High-availability Google STUN servers (verified working)
+  iceServers.push({
+    urls: [
+      'stun:stun.l.google.com:19302',
+      'stun:stun1.l.google.com:19302',
+      'stun:stun2.l.google.com:19302',
+      'stun:stun3.l.google.com:19302',
+      'stun:stun4.l.google.com:19302',
+    ],
+  });
+
+  // 2. Custom TURN server if configured in environment (TURN_SERVER_URL / TURN_URL)
   if (config.webrtc.turnUrl) {
-    const customTurn = { urls: config.webrtc.turnUrl };
+    const urls = config.webrtc.turnUrl.includes(',')
+      ? config.webrtc.turnUrl.split(',').map((u) => u.trim())
+      : config.webrtc.turnUrl;
+
+    const customTurn = { urls };
     if (config.webrtc.turnUsername) customTurn.username = config.webrtc.turnUsername;
     if (config.webrtc.turnCredential) customTurn.credential = config.webrtc.turnCredential;
     iceServers.push(customTurn);
   }
 
-  // 2. High-availability Google & Metered STUN servers
-  iceServers.push(
-    {
-      urls: [
-        'stun:stun.l.google.com:19302',
-        'stun:stun1.l.google.com:19302',
-        'stun:stun2.l.google.com:19302',
-        'stun:stun3.l.google.com:19302',
-        'stun:stun4.l.google.com:19302',
-      ],
-    },
-    {
-      urls: 'stun:stun.relay.metered.ca:80',
+  // 3. Optional dynamic Metered TURN credentials if METERED_API_KEY is configured
+  if (process.env.METERED_API_KEY) {
+    try {
+      const meteredDomain = process.env.METERED_DOMAIN || 'collabspace';
+      const response = await fetch(`https://${meteredDomain}.metered.ca/api/v1/turn/credentials?apiKey=${process.env.METERED_API_KEY}`);
+      if (response.ok) {
+        const meteredServers = await response.json();
+        if (Array.isArray(meteredServers)) {
+          iceServers.push(...meteredServers);
+        }
+      }
+    } catch (err) {
+      console.warn('[WebRTC] Failed to fetch dynamic Metered credentials:', err.message);
     }
-  );
-
-  // 3. Fallback TURN relay servers (OpenRelay / Metered free relay for NAT & firewall traversal)
-  // Ensures calls succeed across mobile hotspot (Realme/CGNAT), cellular data, VPNs, and strict firewalls
-  iceServers.push(
-    {
-      urls: 'turn:standard.relay.metered.ca:80',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
-    {
-      urls: 'turn:standard.relay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
-    {
-      urls: 'turn:standard.relay.metered.ca:443?transport=tcp',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    }
-  );
+  }
 
   res.json({ iceServers });
 });

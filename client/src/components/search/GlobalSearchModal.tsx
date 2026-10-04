@@ -80,7 +80,8 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             style={{
               padding: '0 18px',
               borderRadius: 'var(--radius-md)',
-              background: 'var(--brand-primary)',
+              background: 'var(--brand-gradient)',
+              boxShadow: '0 2px 10px rgba(124, 92, 255, 0.35)',
               border: 'none',
               color: '#FFFFFF',
               fontWeight: 600,
@@ -89,6 +90,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              transition: 'all var(--transition-fast)',
             }}
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : 'Search'}

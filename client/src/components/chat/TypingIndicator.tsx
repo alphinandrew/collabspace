@@ -62,7 +62,7 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = ({ users }) => {
         backgroundColor: 'var(--bg-surface-elevated)',
         border: '1px solid var(--border-highlight)',
         borderRadius: '16px',
-        boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25), 0 0 10px rgba(99, 102, 241, 0.1)',
+        boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25), 0 0 12px rgba(124, 92, 255, 0.2)',
         backdropFilter: 'blur(10px)',
         fontSize: '0.8rem',
         color: 'var(--text-secondary)',

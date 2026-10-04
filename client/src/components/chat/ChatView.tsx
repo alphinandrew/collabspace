@@ -31,6 +31,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<TypingUserInfo[]>([]);
   const [activeCallInfo, setActiveCallInfo] = useState<any | null>(null);
@@ -40,25 +42,64 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const isScrolledToBottomRef = useRef(true);
+  const loadingMoreRef = useRef(false);
 
   // Check user permission in this group
   const currentUserMembership = members.find((m) => m.id === user?.id);
   const isAdminOrOwner =
     currentUserMembership?.role === 'owner' || currentUserMembership?.role === 'admin';
 
-  // Load message history from persistent backend database
+  // Load initial message history (50 latest messages for fast initial render)
   const loadMessages = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.getMessages(group.id, 100);
+      const res = await api.getMessages(group.id, 50);
       setMessages(res.messages);
+      setHasMore(res.messages.length >= 50);
     } catch (err: any) {
       setError(err.message || 'Unable to load message history.');
     } finally {
       setLoading(false);
     }
   }, [group.id]);
+
+  // Load older messages for infinite upward scrolling
+  const loadOlderMessages = async () => {
+    if (!hasMore || loadingMoreRef.current || messages.length === 0) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+
+    const oldestMessage = messages[0];
+    const prevScrollHeight = scrollContainerRef.current?.scrollHeight || 0;
+
+    try {
+      const res = await api.getMessages(group.id, 50, oldestMessage.created_at);
+      if (res.messages && res.messages.length > 0) {
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const newOlder = res.messages.filter((m) => !existingIds.has(m.id));
+          return [...newOlder, ...prev];
+        });
+        setHasMore(res.messages.length >= 50);
+
+        // Preserve scroll position so view doesn't jump
+        requestAnimationFrame(() => {
+          if (scrollContainerRef.current) {
+            const newScrollHeight = scrollContainerRef.current.scrollHeight;
+            scrollContainerRef.current.scrollTop += newScrollHeight - prevScrollHeight;
+          }
+        });
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.warn('Could not load older messages:', err);
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     loadMessages();
@@ -97,6 +138,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
     if (!scrollContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
     isScrolledToBottomRef.current = scrollHeight - scrollTop - clientHeight < 60;
+
+    // Trigger loading older messages when near top
+    if (scrollTop < 40 && hasMore && !loadingMoreRef.current) {
+      loadOlderMessages();
+    }
   };
 
   // Real-time socket event listeners
@@ -241,13 +287,76 @@ export const ChatView: React.FC<ChatViewProps> = ({
     if (!user) return;
     setReactionError(null);
 
+    // Save previous state for instant rollback if network request fails
+    let rollbackReactions: any[] | undefined;
+
+    // 1. Optimistic Update: Immediately reflect the reaction in local UI (0ms perceived latency)
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== messageId) return m;
+        rollbackReactions = m.reactions ? JSON.parse(JSON.stringify(m.reactions)) : [];
+
+        const currentReactions = m.reactions
+          ? m.reactions.map((r) => ({
+              ...r,
+              userIds: [...r.userIds],
+              users: [...r.users],
+            }))
+          : [];
+
+        const targetRxn = currentReactions.find((r) => r.emoji === emoji);
+        const hasReactedWithThisEmoji = targetRxn?.userIds.includes(user.id);
+
+        // Check if user reacted with any OTHER emoji on this message (single reaction per user rule)
+        const previousRxn = currentReactions.find((r) => r.emoji !== emoji && r.userIds.includes(user.id));
+        if (previousRxn) {
+          previousRxn.userIds = previousRxn.userIds.filter((id) => id !== user.id);
+          previousRxn.users = previousRxn.users.filter((u) => u.id !== user.id);
+          previousRxn.count = previousRxn.userIds.length;
+        }
+
+        if (hasReactedWithThisEmoji && targetRxn) {
+          // Toggle off: remove user reaction
+          targetRxn.userIds = targetRxn.userIds.filter((id) => id !== user.id);
+          targetRxn.users = targetRxn.users.filter((u) => u.id !== user.id);
+          targetRxn.count = targetRxn.userIds.length;
+        } else if (targetRxn) {
+          // Add user to existing emoji group
+          targetRxn.userIds.push(user.id);
+          targetRxn.users.push({ id: user.id, name: user.name });
+          targetRxn.count = targetRxn.userIds.length;
+        } else {
+          // Create new emoji reaction group
+          currentReactions.push({
+            emoji,
+            count: 1,
+            userIds: [user.id],
+            users: [{ id: user.id, name: user.name }],
+          });
+        }
+
+        return {
+          ...m,
+          reactions: currentReactions.filter((r) => r.count > 0),
+        };
+      })
+    );
+
+    // 2. Network Persistence & Confirmation
     try {
       const res = await api.toggleReaction(group.id, messageId, emoji);
+      // Reconcile with authoritative server response
       setMessages((prev) =>
         prev.map((m) => (m.id === messageId ? { ...m, reactions: res.reactions } : m))
       );
     } catch (err: any) {
       console.error('Failed to toggle reaction:', err);
+      // Rollback optimistic state
+      if (rollbackReactions !== undefined) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? { ...m, reactions: rollbackReactions } : m))
+        );
+      }
       setReactionError({
         messageId,
         emoji,
@@ -350,6 +459,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
               cursor: 'pointer',
               transition: 'all var(--transition-fast)',
             }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--accent-cyan-border)';
+              e.currentTarget.style.color = 'var(--accent-cyan)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-subtle)';
+              e.currentTarget.style.color = 'var(--text-secondary)';
+            }}
             title="Start Voice Call"
           >
             <Phone size={16} />
@@ -365,10 +482,20 @@ export const ChatView: React.FC<ChatViewProps> = ({
               height: '34px',
               borderRadius: 'var(--radius-md)',
               background: 'var(--brand-primary-light)',
-              border: '1px solid rgba(99, 102, 241, 0.3)',
+              border: '1px solid var(--brand-primary-border)',
               color: 'var(--brand-primary)',
               cursor: 'pointer',
               transition: 'all var(--transition-fast)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--brand-primary)';
+              e.currentTarget.style.color = '#FFFFFF';
+              e.currentTarget.style.boxShadow = '0 0 12px rgba(124, 92, 255, 0.35)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'var(--brand-primary-light)';
+              e.currentTarget.style.color = 'var(--brand-primary)';
+              e.currentTarget.style.boxShadow = 'none';
             }}
             title="Start Video Call"
           >
@@ -389,6 +516,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
               color: 'var(--text-secondary)',
               cursor: 'pointer',
               transition: 'all var(--transition-fast)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-highlight)';
+              e.currentTarget.style.color = 'var(--text-primary)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-subtle)';
+              e.currentTarget.style.color = 'var(--text-secondary)';
             }}
             title="Workspace Details"
           >
@@ -413,14 +548,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
         </div>
       )}
 
-      {/* Active Call Notification Banner (Feature 2) */}
+      {/* Active Call Notification Banner */}
       {activeCallInfo && activeCallInfo.active && (
         <div
           className="animate-slide-up"
           style={{
             padding: '10px 20px',
-            backgroundColor: 'rgba(99, 102, 241, 0.12)',
-            borderBottom: '1px solid rgba(99, 102, 241, 0.25)',
+            backgroundColor: 'rgba(124, 92, 255, 0.12)',
+            borderBottom: '1px solid rgba(124, 92, 255, 0.25)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -468,7 +603,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                boxShadow: '0 2px 8px rgba(99, 102, 241, 0.35)',
+                boxShadow: '0 2px 10px rgba(124, 92, 255, 0.4)',
               }}
             >
               <Video size={14} /> Join Call
@@ -494,6 +629,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
           gap: '12px',
         }}
       >
+        {loadingMore && (
+          <div style={{ textAlign: 'center', padding: '6px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            Loading older messages...
+          </div>
+        )}
+
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '20px 0' }}>
             <div className="skeleton" style={{ width: '40%', height: '38px', borderRadius: '12px' }} />

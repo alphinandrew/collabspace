@@ -31,7 +31,11 @@ async function getDatabase() {
       const pool = new Pool({
         connectionString: connectionUrl,
         ssl: connectionUrl.includes('localhost') ? false : { rejectUnauthorized: false },
-        connectionTimeoutMillis: 8000,
+        connectionTimeoutMillis: 5000,
+        idleTimeoutMillis: 30000,
+        max: 20,
+        keepAlive: true,
+        keepAliveInitialDelayMillis: 10000,
       });
 
       const dbWrapper = {
@@ -315,9 +319,11 @@ async function initSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
     CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token);
     CREATE INDEX IF NOT EXISTS idx_messages_group ON messages(group_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_messages_id_group ON messages(id, group_id);
     CREATE INDEX IF NOT EXISTS idx_files_group ON files(group_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(email);
     CREATE INDEX IF NOT EXISTS idx_reactions_message ON message_reactions(message_id);
+    CREATE INDEX IF NOT EXISTS idx_reactions_msg_user ON message_reactions(message_id, user_id);
     CREATE INDEX IF NOT EXISTS idx_call_participants_call ON call_participants(call_id);
     CREATE INDEX IF NOT EXISTS idx_forwarded_messages_dest ON forwarded_messages(destination_group_id);
   `);

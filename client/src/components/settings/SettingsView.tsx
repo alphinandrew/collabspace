@@ -123,10 +123,10 @@ export const SettingsView: React.FC = () => {
                   outline: 'none',
                 }}
               >
-                <option value="online" style={{ background: '#1E293B' }}>Online (Available)</option>
-                <option value="away" style={{ background: '#1E293B' }}>Away</option>
-                <option value="busy" style={{ background: '#1E293B' }}>Busy / In Call</option>
-                <option value="offline" style={{ background: '#1E293B' }}>Invisible / Offline</option>
+                <option value="online" style={{ background: '#171D34', color: '#F5F7FF' }}>Online (Available)</option>
+                <option value="away" style={{ background: '#171D34', color: '#F5F7FF' }}>Away</option>
+                <option value="busy" style={{ background: '#171D34', color: '#F5F7FF' }}>Busy / In Call</option>
+                <option value="offline" style={{ background: '#171D34', color: '#F5F7FF' }}>Invisible / Offline</option>
               </select>
             </div>
 
@@ -173,7 +173,7 @@ export const SettingsView: React.FC = () => {
                 cursor: 'pointer',
               }}
             >
-              🌙 Dark Obsidian (Default)
+              🌙 Deep Space Navy (Default)
             </button>
 
             <button

@@ -32,11 +32,11 @@ export const CallControls: React.FC<CallControlsProps> = ({
         justifyContent: 'center',
         gap: '14px',
         padding: '14px 24px',
-        backgroundColor: 'rgba(15, 23, 42, 0.85)',
-        backdropFilter: 'blur(12px)',
+        backgroundColor: 'rgba(16, 21, 40, 0.88)',
+        backdropFilter: 'blur(16px)',
         borderRadius: 'var(--radius-full)',
         border: '1px solid var(--border-subtle)',
-        boxShadow: 'var(--shadow-lg)',
+        boxShadow: 'var(--shadow-xl)',
       }}
     >
       {/* Microphone Toggle */}

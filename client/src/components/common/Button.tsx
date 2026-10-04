@@ -24,7 +24,7 @@ export const Button: React.FC<ButtonProps> = ({
           background: 'var(--brand-primary)',
           color: '#FFFFFF',
           border: '1px solid transparent',
-          boxShadow: 'var(--shadow-sm)',
+          boxShadow: '0 2px 8px rgba(124, 92, 255, 0.35)',
         };
       case 'secondary':
         return {
@@ -49,6 +49,7 @@ export const Button: React.FC<ButtonProps> = ({
           background: 'var(--danger)',
           color: '#FFFFFF',
           border: '1px solid transparent',
+          boxShadow: '0 2px 8px rgba(239, 68, 68, 0.35)',
         };
       default:
         return {};
@@ -83,6 +84,28 @@ export const Button: React.FC<ButtonProps> = ({
         ...getVariantStyles(),
         ...getSizeStyles(),
         ...style,
+      }}
+      onMouseEnter={(e) => {
+        if (!disabled && !loading) {
+          if (variant === 'primary') {
+            e.currentTarget.style.background = 'var(--brand-primary-hover)';
+            e.currentTarget.style.boxShadow = '0 4px 14px rgba(124, 92, 255, 0.45)';
+          } else if (variant === 'secondary' || variant === 'outline' || variant === 'ghost') {
+            e.currentTarget.style.background = 'var(--bg-surface-hover)';
+          }
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!disabled && !loading) {
+          if (variant === 'primary') {
+            e.currentTarget.style.background = 'var(--brand-primary)';
+            e.currentTarget.style.boxShadow = '0 2px 8px rgba(124, 92, 255, 0.35)';
+          } else if (variant === 'secondary') {
+            e.currentTarget.style.background = 'var(--bg-surface-elevated)';
+          } else if (variant === 'outline' || variant === 'ghost') {
+            e.currentTarget.style.background = 'transparent';
+          }
+        }
       }}
       {...props}
     >

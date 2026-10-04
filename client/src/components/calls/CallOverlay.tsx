@@ -28,11 +28,33 @@ const ParticipantTile: React.FC<ParticipantTileProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
+  // Reliable video element attachment via callback ref
+  const attachVideoRef = React.useCallback(
+    (node: HTMLVideoElement | null) => {
+      videoRef.current = node;
+      if (node && stream) {
+        if (node.srcObject !== stream) {
+          node.srcObject = stream;
+        }
+        node.play().catch((err) => {
+          console.warn(`[WebRTC] video.play() note for ${name}:`, err.message);
+        });
+      }
+    },
+    [stream, name]
+  );
+
+  // Keep srcObject synchronized whenever stream or camera state updates
   useEffect(() => {
     if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
+      if (videoRef.current.srcObject !== stream) {
+        videoRef.current.srcObject = stream;
+      }
+      videoRef.current.play().catch((err) => {
+        console.warn(`[WebRTC] video.play() note for ${name}:`, err.message);
+      });
     }
-  }, [stream]);
+  }, [stream, isCameraOff, isScreenSharing, name]);
 
   const showVideo = stream && (!isCameraOff || isScreenSharing);
 
@@ -42,20 +64,20 @@ const ParticipantTile: React.FC<ParticipantTileProps> = ({
         position: 'relative',
         width: '100%',
         height: '100%',
-        backgroundColor: '#0A0F1D',
+        backgroundColor: 'var(--bg-surface)',
         borderRadius: 'var(--radius-lg)',
         border: isScreenSharing ? '2px solid var(--brand-primary)' : '1px solid var(--border-subtle)',
         overflow: 'hidden',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: isScreenSharing ? '0 0 20px rgba(99, 102, 241, 0.25)' : 'var(--shadow-md)',
+        boxShadow: isScreenSharing ? '0 0 20px rgba(124, 92, 255, 0.35)' : 'var(--shadow-md)',
       }}
     >
       {/* Video Element */}
       {showVideo ? (
         <video
-          ref={videoRef}
+          ref={attachVideoRef}
           autoPlay
           playsInline
           muted={isLocal} // mute local playback to avoid audio feedback echo
@@ -70,6 +92,18 @@ const ParticipantTile: React.FC<ParticipantTileProps> = ({
       ) : (
         /* Camera Off Fallback: Avatar */
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+          {/* Ensure audio still plays when video element is not mounted */}
+          {!isLocal && stream && (
+            <audio
+              autoPlay
+              ref={(node) => {
+                if (node && node.srcObject !== stream) {
+                  node.srcObject = stream;
+                  node.play().catch((e) => console.warn('[WebRTC] audio play note:', e));
+                }
+              }}
+            />
+          )}
           <Avatar name={name} src={avatar} size="xl" />
           <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
             {name} {isLocal && '(You)'}
@@ -149,7 +183,7 @@ export const CallOverlay: React.FC = () => {
         position: 'fixed',
         inset: 0,
         zIndex: 1000,
-        backgroundColor: '#070A12',
+        backgroundColor: 'var(--bg-app)',
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -162,7 +196,7 @@ export const CallOverlay: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'space-between',
           borderBottom: '1px solid var(--border-subtle)',
-          backgroundColor: 'rgba(15, 23, 42, 0.85)',
+          backgroundColor: 'rgba(16, 21, 40, 0.85)',
           backdropFilter: 'blur(8px)',
           zIndex: 10,
         }}

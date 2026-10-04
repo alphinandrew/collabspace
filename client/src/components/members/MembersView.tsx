@@ -169,7 +169,7 @@ export const MembersView: React.FC<MembersViewProps> = ({ group }) => {
                     member.role === 'owner'
                       ? 'primary'
                       : member.role === 'admin'
-                      ? 'warning'
+                      ? 'cyan'
                       : 'neutral'
                   }
                 >
