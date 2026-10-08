@@ -6,7 +6,7 @@ export const qrService = {
       width: 256,
       margin: 2,
       color: {
-        dark: '#080B16',
+        dark: '#0F1110',
         light: '#FFFFFF',
       },
       errorCorrectionLevel: 'H',
@@ -18,7 +18,7 @@ export const qrService = {
       width: 280,
       margin: 2,
       color: {
-        dark: '#080B16',
+        dark: '#0F1110',
         light: '#FFFFFF',
       },
       errorCorrectionLevel: 'H',

@@ -72,7 +72,7 @@ export const Input: React.FC<InputProps> = ({
           onFocus={(e) => {
             if (!error) {
               e.currentTarget.style.borderColor = 'var(--border-focus)';
-              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(124, 92, 255, 0.22)';
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(34, 197, 94, 0.22)';
             }
           }}
           onBlur={(e) => {

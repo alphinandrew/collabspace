@@ -460,8 +460,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
               transition: 'all var(--transition-fast)',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'var(--accent-cyan-border)';
-              e.currentTarget.style.color = 'var(--accent-cyan)';
+              e.currentTarget.style.borderColor = 'var(--brand-primary-border)';
+              e.currentTarget.style.color = 'var(--brand-primary)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.borderColor = 'var(--border-subtle)';
@@ -490,7 +490,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
             onMouseEnter={(e) => {
               e.currentTarget.style.background = 'var(--brand-primary)';
               e.currentTarget.style.color = '#FFFFFF';
-              e.currentTarget.style.boxShadow = '0 0 12px rgba(124, 92, 255, 0.35)';
+              e.currentTarget.style.boxShadow = '0 0 12px rgba(34, 197, 94, 0.35)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = 'var(--brand-primary-light)';
@@ -554,8 +554,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
           className="animate-slide-up"
           style={{
             padding: '10px 20px',
-            backgroundColor: 'rgba(124, 92, 255, 0.12)',
-            borderBottom: '1px solid rgba(124, 92, 255, 0.25)',
+            backgroundColor: 'rgba(34, 197, 94, 0.12)',
+            borderBottom: '1px solid rgba(34, 197, 94, 0.25)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -603,7 +603,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                boxShadow: '0 2px 10px rgba(124, 92, 255, 0.4)',
+                boxShadow: '0 2px 10px rgba(34, 197, 94, 0.4)',
               }}
             >
               <Video size={14} /> Join Call

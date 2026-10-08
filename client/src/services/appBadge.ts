@@ -172,12 +172,12 @@ class AppBadgeService {
         ctx.drawImage(this.baseIconImg, 0, 0, size, size);
       } else {
         // Stylized dark brand fallback
-        ctx.fillStyle = '#0C1020';
+        ctx.fillStyle = '#121512';
         ctx.beginPath();
         drawRounded(0, 0, size, size, 16);
         ctx.fill();
 
-        ctx.fillStyle = '#7C5CFF';
+        ctx.fillStyle = '#22C55E';
         ctx.beginPath();
         drawRounded(14, 14, 36, 36, 10);
         ctx.fill();

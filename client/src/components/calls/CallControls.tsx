@@ -32,7 +32,7 @@ export const CallControls: React.FC<CallControlsProps> = ({
         justifyContent: 'center',
         gap: '14px',
         padding: '14px 24px',
-        backgroundColor: 'rgba(16, 21, 40, 0.88)',
+        backgroundColor: 'rgba(18, 21, 18, 0.92)',
         backdropFilter: 'blur(16px)',
         borderRadius: 'var(--radius-full)',
         border: '1px solid var(--border-subtle)',

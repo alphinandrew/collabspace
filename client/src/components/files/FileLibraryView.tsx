@@ -119,7 +119,7 @@ export const FileLibraryView: React.FC<FileLibraryViewProps> = ({ group }) => {
       return <ImageIcon size={20} color="var(--brand-primary)" />;
     }
     if (m.includes('pdf') || fn.endsWith('.pdf')) {
-      return <FileText size={20} color="var(--accent-cyan)" />;
+      return <FileText size={20} color="var(--brand-secondary)" />;
     }
     if (m.includes('spreadsheet') || fn.endsWith('.xls') || fn.endsWith('.xlsx') || fn.endsWith('.csv')) {
       return <FileSpreadsheet size={20} color="var(--success)" />;
@@ -307,7 +307,7 @@ export const FileLibraryView: React.FC<FileLibraryViewProps> = ({ group }) => {
                 }}
                 onMouseEnter={(e) => {
                   if (!isCatActive) {
-                    e.currentTarget.style.borderColor = 'var(--accent-cyan-border)';
+                    e.currentTarget.style.borderColor = 'var(--brand-primary-border)';
                     e.currentTarget.style.color = 'var(--text-primary)';
                   }
                 }}

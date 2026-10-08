@@ -81,7 +81,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               padding: '0 18px',
               borderRadius: 'var(--radius-md)',
               background: 'var(--brand-gradient)',
-              boxShadow: '0 2px 10px rgba(124, 92, 255, 0.35)',
+              boxShadow: '0 2px 10px rgba(34, 197, 94, 0.35)',
               border: 'none',
               color: '#FFFFFF',
               fontWeight: 600,

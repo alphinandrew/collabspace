@@ -1,55 +1,60 @@
 /* ==============================================================================
    CollabSpace — Design System & CSS Custom Properties
-   Theme: Deep-Space Navy + Electric Violet (#7C5CFF) + Cyan Accent (#22D3EE)
-   Sophisticated, professional, modern, technology-focused workspace aesthetic
+   Theme: Charcoal (#0F1110) + Emerald Green (#22C55E) + Warm Orange (#F59E0B)
+   Professional, high-contrast, modern productivity workspace aesthetic
    ============================================================================== */
 
 :root {
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* Color System - Dark Default (Deep Space Navy) */
-  --bg-app: #080B16;
-  --bg-sidebar: #0C1020;
-  --bg-surface: #101528;
-  --bg-surface-elevated: #171D34;
-  --bg-surface-hover: #1E2642;
-  --bg-card: rgba(23, 29, 52, 0.72);
+  /* Color System - Dark Default (Neutral Charcoal) */
+  --bg-app: #0F1110;
+  --bg-sidebar: #121512;
+  --bg-surface: #181C19;
+  --bg-surface-elevated: #202520;
+  --bg-surface-hover: #292F2A;
+  --bg-card: rgba(32, 37, 32, 0.75);
   
-  --border-subtle: #29324D;
-  --border-subtle-translucent: rgba(167, 176, 197, 0.12);
-  --border-focus: #7C5CFF;
-  --border-highlight: rgba(124, 92, 255, 0.28);
-  --border-cyan-highlight: rgba(34, 211, 238, 0.3);
+  --border-subtle: #343B35;
+  --border-subtle-translucent: rgba(185, 190, 185, 0.12);
+  --border-focus: #22C55E;
+  --border-highlight: rgba(34, 197, 94, 0.28);
+  --border-orange-highlight: rgba(245, 158, 11, 0.3);
 
-  --text-primary: #F5F7FF;
-  --text-secondary: #A7B0C5;
-  --text-muted: #6C7897;
-  --text-inverse: #080B16;
+  --text-primary: #F4F4EF;
+  --text-secondary: #B9BEB9;
+  --text-muted: #7F8780;
+  --text-inverse: #0F1110;
 
-  /* Primary Brand - Electric Violet */
-  --brand-primary: #7C5CFF;
-  --brand-primary-hover: #6C48FA;
-  --brand-primary-light: rgba(124, 92, 255, 0.15);
-  --brand-primary-border: rgba(124, 92, 255, 0.35);
-  --brand-gradient: linear-gradient(135deg, #7C5CFF 0%, #22D3EE 100%);
-  --brand-gradient-hover: linear-gradient(135deg, #6C48FA 0%, #06B6D4 100%);
+  /* Primary Brand - Emerald Green */
+  --brand-primary: #22C55E;
+  --brand-primary-hover: #16A34A;
+  --brand-primary-light: rgba(34, 197, 94, 0.14);
+  --brand-primary-border: rgba(34, 197, 94, 0.35);
+  --brand-gradient: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
+  --brand-gradient-hover: linear-gradient(135deg, #16A34A 0%, #15803D 100%);
   
-  /* Secondary Accent - Cyan */
-  --accent-cyan: #22D3EE;
-  --accent-cyan-hover: #06B6D4;
-  --accent-cyan-light: rgba(34, 211, 238, 0.14);
-  --accent-cyan-border: rgba(34, 211, 238, 0.35);
-  --accent-cyan-glow: 0 0 16px rgba(34, 211, 238, 0.3);
+  /* Secondary Accent - Warm Orange */
+  --brand-secondary: #F59E0B;
+  --brand-secondary-hover: #D97706;
+  --brand-secondary-light: rgba(245, 158, 11, 0.14);
+  --brand-secondary-border: rgba(245, 158, 11, 0.35);
+  --brand-secondary-glow: 0 0 16px rgba(245, 158, 11, 0.3);
+
+  --accent-orange: #F59E0B;
+  --accent-orange-hover: #D97706;
+  --accent-orange-light: rgba(245, 158, 11, 0.14);
+  --accent-orange-border: rgba(245, 158, 11, 0.35);
 
   /* Status Colors */
-  --status-online: #10B981;
-  --status-offline: #6C7897;
+  --status-online: #22C55E;
+  --status-offline: #7F8780;
   --status-busy: #EF4444;
   --status-away: #F59E0B;
 
-  --success: #10B981;
-  --success-bg: rgba(16, 185, 129, 0.14);
+  --success: #22C55E;
+  --success-bg: rgba(34, 197, 94, 0.14);
   --warning: #F59E0B;
   --warning-bg: rgba(245, 158, 11, 0.14);
   --danger: #EF4444;
@@ -65,8 +70,8 @@
   --shadow-md: 0 4px 14px 0 rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 12px 28px -4px rgba(0, 0, 0, 0.65);
   --shadow-xl: 0 20px 35px -6px rgba(0, 0, 0, 0.75);
-  --shadow-glow: 0 0 24px rgba(124, 92, 255, 0.28);
-  --shadow-glow-cyan: 0 0 24px rgba(34, 211, 238, 0.25);
+  --shadow-glow: 0 0 24px rgba(34, 197, 94, 0.24);
+  --shadow-glow-orange: 0 0 24px rgba(245, 158, 11, 0.24);
 
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-base: 220ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -74,40 +79,45 @@
 
 /* Light Theme Variables */
 [data-theme="light"] {
-  --bg-app: #F5F7FC;
-  --bg-sidebar: #EBF0F8;
+  --bg-app: #F7F8F7;
+  --bg-sidebar: #ECEEEC;
   --bg-surface: #FFFFFF;
-  --bg-surface-elevated: #F7FAFC;
-  --bg-surface-hover: #E4EAF4;
+  --bg-surface-elevated: #F2F4F2;
+  --bg-surface-hover: #E3E7E3;
   --bg-card: #FFFFFF;
 
-  --border-subtle: #D8DFEE;
-  --border-subtle-translucent: rgba(41, 50, 77, 0.12);
-  --border-focus: #7C5CFF;
-  --border-highlight: rgba(124, 92, 255, 0.25);
-  --border-cyan-highlight: rgba(14, 165, 233, 0.28);
+  --border-subtle: #D2D7D2;
+  --border-subtle-translucent: rgba(52, 59, 53, 0.12);
+  --border-focus: #16A34A;
+  --border-highlight: rgba(34, 197, 94, 0.25);
+  --border-orange-highlight: rgba(245, 158, 11, 0.28);
 
-  --text-primary: #0F1424;
-  --text-secondary: #4A5568;
-  --text-muted: #8290A8;
+  --text-primary: #121512;
+  --text-secondary: #4E564E;
+  --text-muted: #7F8780;
   --text-inverse: #FFFFFF;
 
-  --brand-primary: #6C48FA;
-  --brand-primary-hover: #5A35E5;
-  --brand-primary-light: rgba(108, 72, 250, 0.12);
-  --brand-primary-border: rgba(108, 72, 250, 0.3);
+  --brand-primary: #16A34A;
+  --brand-primary-hover: #15803D;
+  --brand-primary-light: rgba(22, 163, 74, 0.12);
+  --brand-primary-border: rgba(22, 163, 74, 0.3);
 
-  --accent-cyan: #0891B2;
-  --accent-cyan-hover: #0E7490;
-  --accent-cyan-light: rgba(8, 145, 178, 0.12);
-  --accent-cyan-border: rgba(8, 145, 178, 0.28);
+  --brand-secondary: #D97706;
+  --brand-secondary-hover: #B45309;
+  --brand-secondary-light: rgba(217, 119, 6, 0.12);
+  --brand-secondary-border: rgba(217, 119, 6, 0.28);
 
-  --shadow-sm: 0 1px 3px 0 rgba(16, 21, 40, 0.08);
-  --shadow-md: 0 4px 14px 0 rgba(16, 21, 40, 0.1);
-  --shadow-lg: 0 12px 28px -4px rgba(16, 21, 40, 0.12);
-  --shadow-xl: 0 20px 35px -6px rgba(16, 21, 40, 0.16);
-  --shadow-glow: 0 0 24px rgba(108, 72, 250, 0.2);
-  --shadow-glow-cyan: 0 0 24px rgba(8, 145, 178, 0.18);
+  --accent-orange: #D97706;
+  --accent-orange-hover: #B45309;
+  --accent-orange-light: rgba(217, 119, 6, 0.12);
+  --accent-orange-border: rgba(217, 119, 6, 0.28);
+
+  --shadow-sm: 0 1px 3px 0 rgba(18, 21, 18, 0.08);
+  --shadow-md: 0 4px 14px 0 rgba(18, 21, 18, 0.1);
+  --shadow-lg: 0 12px 28px -4px rgba(18, 21, 18, 0.12);
+  --shadow-xl: 0 20px 35px -6px rgba(18, 21, 18, 0.16);
+  --shadow-glow: 0 0 24px rgba(22, 163, 74, 0.2);
+  --shadow-glow-orange: 0 0 24px rgba(217, 119, 6, 0.18);
 }
 
 /* Reset & Base Styles */
@@ -140,7 +150,7 @@ button, input, textarea, select {
 /* Custom Scrollbars */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(167, 176, 197, 0.2) transparent;
+  scrollbar-color: rgba(185, 190, 185, 0.2) transparent;
 }
 *::-webkit-scrollbar {
   width: 6px;
@@ -150,11 +160,11 @@ button, input, textarea, select {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background-color: rgba(167, 176, 197, 0.22);
+  background-color: rgba(185, 190, 185, 0.22);
   border-radius: 9999px;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(167, 176, 197, 0.4);
+  background-color: rgba(185, 190, 185, 0.38);
 }
 
 /* Utility Animations */
@@ -194,7 +204,7 @@ button, input, textarea, select {
   border-radius: var(--radius-sm);
 }
 
-/* Typing Indicator Wave Animation (Electric Violet Glow) */
+/* Typing Indicator Wave Animation (Emerald Green Glow) */
 @keyframes typingWave {
   0%, 60%, 100% {
     transform: translateY(0) scale(0.85);
@@ -204,8 +214,8 @@ button, input, textarea, select {
   30% {
     transform: translateY(-5px) scale(1.15);
     opacity: 1;
-    background-color: #9D85FF;
-    box-shadow: 0 0 10px rgba(124, 92, 255, 0.8);
+    background-color: #22C55E;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
   }
 }
 

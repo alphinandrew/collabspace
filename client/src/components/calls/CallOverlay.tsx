@@ -71,7 +71,7 @@ const ParticipantTile: React.FC<ParticipantTileProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: isScreenSharing ? '0 0 20px rgba(124, 92, 255, 0.35)' : 'var(--shadow-md)',
+        boxShadow: isScreenSharing ? '0 0 20px rgba(34, 197, 94, 0.35)' : 'var(--shadow-md)',
       }}
     >
       {/* Video Element */}
@@ -196,7 +196,7 @@ export const CallOverlay: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'space-between',
           borderBottom: '1px solid var(--border-subtle)',
-          backgroundColor: 'rgba(16, 21, 40, 0.85)',
+          backgroundColor: 'rgba(18, 21, 18, 0.92)',
           backdropFilter: 'blur(8px)',
           zIndex: 10,
         }}

@@ -116,8 +116,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             transition: 'all var(--transition-fast)',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'var(--accent-cyan-border)';
-            e.currentTarget.style.color = 'var(--accent-cyan)';
+            e.currentTarget.style.borderColor = 'var(--brand-primary-border)';
+            e.currentTarget.style.color = 'var(--brand-primary)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.borderColor = 'var(--border-subtle)';
@@ -281,7 +281,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 background: isSelected ? 'var(--bg-surface-elevated)' : 'transparent',
                 border: isSelected ? '1px solid var(--border-highlight)' : '1px solid transparent',
                 borderLeft: isSelected ? '3px solid var(--brand-primary)' : '3px solid transparent',
-                boxShadow: isSelected ? '0 2px 8px rgba(0, 0, 0, 0.25), 0 0 12px rgba(124, 92, 255, 0.12)' : 'none',
+                boxShadow: isSelected ? '0 2px 8px rgba(0, 0, 0, 0.25), 0 0 12px rgba(34, 197, 94, 0.15)' : 'none',
                 color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
                 cursor: 'pointer',
                 textAlign: 'left',
@@ -316,7 +316,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div
                   style={{
                     fontSize: '0.7rem',
-                    color: isSelected ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                    color: isSelected ? 'var(--brand-secondary)' : 'var(--text-muted)',
                     fontFamily: 'var(--font-mono)',
                     letterSpacing: '0.02em',
                   }}
@@ -395,8 +395,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     width: '5px',
                     height: '5px',
                     borderRadius: '50%',
-                    backgroundColor: 'var(--accent-cyan)',
-                    boxShadow: 'var(--accent-cyan-glow)',
+                    backgroundColor: 'var(--brand-primary)',
+                    boxShadow: 'var(--shadow-glow)',
                   }}
                 />
               )}

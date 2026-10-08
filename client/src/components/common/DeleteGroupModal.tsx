@@ -49,7 +49,7 @@ export const DeleteGroupModal: React.FC<DeleteGroupModalProps> = ({
         position: 'fixed',
         inset: 0,
         zIndex: 1200,
-        backgroundColor: 'rgba(8, 11, 22, 0.82)',
+        backgroundColor: 'rgba(15, 17, 16, 0.85)',
         backdropFilter: 'blur(8px)',
         display: 'flex',
         alignItems: 'center',

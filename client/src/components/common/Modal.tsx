@@ -38,7 +38,7 @@ export const Modal: React.FC<ModalProps> = ({
         alignItems: 'center',
         justifyContent: 'center',
         padding: '16px',
-        backgroundColor: 'rgba(8, 11, 22, 0.78)',
+        backgroundColor: 'rgba(15, 17, 16, 0.82)',
         backdropFilter: 'blur(8px)',
       }}
       onClick={onClose}

@@ -24,7 +24,7 @@ export const Button: React.FC<ButtonProps> = ({
           background: 'var(--brand-primary)',
           color: '#FFFFFF',
           border: '1px solid transparent',
-          boxShadow: '0 2px 8px rgba(124, 92, 255, 0.35)',
+          boxShadow: '0 2px 8px rgba(34, 197, 94, 0.35)',
         };
       case 'secondary':
         return {
@@ -89,7 +89,7 @@ export const Button: React.FC<ButtonProps> = ({
         if (!disabled && !loading) {
           if (variant === 'primary') {
             e.currentTarget.style.background = 'var(--brand-primary-hover)';
-            e.currentTarget.style.boxShadow = '0 4px 14px rgba(124, 92, 255, 0.45)';
+            e.currentTarget.style.boxShadow = '0 4px 14px rgba(34, 197, 94, 0.45)';
           } else if (variant === 'secondary' || variant === 'outline' || variant === 'ghost') {
             e.currentTarget.style.background = 'var(--bg-surface-hover)';
           }
@@ -99,7 +99,7 @@ export const Button: React.FC<ButtonProps> = ({
         if (!disabled && !loading) {
           if (variant === 'primary') {
             e.currentTarget.style.background = 'var(--brand-primary)';
-            e.currentTarget.style.boxShadow = '0 2px 8px rgba(124, 92, 255, 0.35)';
+            e.currentTarget.style.boxShadow = '0 2px 8px rgba(34, 197, 94, 0.35)';
           } else if (variant === 'secondary') {
             e.currentTarget.style.background = 'var(--bg-surface-elevated)';
           } else if (variant === 'outline' || variant === 'ghost') {

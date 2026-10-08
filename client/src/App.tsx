@@ -38,27 +38,27 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
             justifyContent: 'center',
             flexDirection: 'column',
             gap: '16px',
-            backgroundColor: '#080B16',
-            color: '#F5F7FF',
+            backgroundColor: '#0F1110',
+            color: '#F4F4EF',
             padding: '24px',
             textAlign: 'center',
           }}
         >
           <h2 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Something went wrong</h2>
-          <p style={{ color: '#A7B0C5', maxWidth: '420px', fontSize: '0.9rem' }}>
+          <p style={{ color: '#B9BEB9', maxWidth: '420px', fontSize: '0.9rem' }}>
             An unexpected error occurred in the workspace interface.
           </p>
           <button
             onClick={() => window.location.reload()}
             style={{
               padding: '10px 20px',
-              backgroundColor: '#7C5CFF',
+              backgroundColor: '#22C55E',
               color: '#FFFFFF',
               border: 'none',
               borderRadius: '8px',
               fontWeight: 600,
               cursor: 'pointer',
-              boxShadow: '0 2px 10px rgba(124, 92, 255, 0.4)',
+              boxShadow: '0 2px 10px rgba(34, 197, 94, 0.4)',
             }}
           >
             Reload Workspace

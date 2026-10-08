@@ -273,17 +273,17 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             backgroundColor: isEmojiOnly
               ? 'transparent'
               : isCurrentUser
-              ? 'var(--brand-primary)'
+              ? '#1B4D2E'
               : 'var(--bg-surface-elevated)',
-            color: isCurrentUser ? '#FFFFFF' : 'var(--text-primary)',
-            border: isEmojiOnly ? 'none' : isCurrentUser ? 'none' : '1px solid var(--border-subtle)',
+            color: isCurrentUser ? 'var(--text-primary)' : 'var(--text-primary)',
+            border: isEmojiOnly ? 'none' : isCurrentUser ? '1px solid rgba(34, 197, 94, 0.45)' : '1px solid var(--border-subtle)',
             fontSize: isEmojiOnly ? '2.2rem' : '0.9rem',
             lineHeight: isEmojiOnly ? 1.2 : 1.45,
             wordBreak: 'break-word',
             boxShadow: isEmojiOnly
               ? 'none'
               : isCurrentUser
-              ? '0 2px 12px rgba(124, 92, 255, 0.28)'
+              ? '0 2px 10px rgba(34, 197, 94, 0.2)'
               : 'var(--shadow-sm)',
             position: 'relative',
             cursor: 'default',
@@ -298,7 +298,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 alignItems: 'center',
                 gap: '5px',
                 fontSize: '0.72rem',
-                color: isCurrentUser ? 'rgba(255, 255, 255, 0.85)' : 'var(--accent-cyan)',
+                color: isCurrentUser ? 'rgba(244, 244, 239, 0.85)' : 'var(--brand-secondary)',
                 marginBottom: '6px',
                 fontWeight: 600,
               }}
@@ -362,7 +362,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                     transition: 'all var(--transition-fast)',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--accent-cyan-border)';
+                    e.currentTarget.style.borderColor = 'var(--brand-primary-border)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.borderColor = hasReacted
@@ -375,7 +375,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                     style={{
                       fontSize: '0.72rem',
                       fontWeight: 600,
-                      color: hasReacted ? 'var(--accent-cyan)' : 'inherit',
+                      color: hasReacted ? 'var(--brand-primary)' : 'inherit',
                     }}
                   >
                     {rxn.count}
@@ -416,7 +416,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 Failed <RotateCcw size={10} />
               </span>
             )}
-            {!message.status && <CheckCheck size={12} color="var(--accent-cyan)" />}
+            {!message.status && <CheckCheck size={12} color="var(--brand-primary)" />}
           </div>
         )}
       </div>

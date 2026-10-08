@@ -9,12 +9,12 @@ interface AvatarProps {
 }
 
 const colorPairs = [
-  ['#7C5CFF', '#22D3EE'],
-  ['#6366F1', '#8B5CF6'],
-  ['#0EA5E9', '#22D3EE'],
-  ['#10B981', '#06B6D4'],
-  ['#8B5CF6', '#EC4899'],
-  ['#F59E0B', '#EF4444'],
+  ['#22C55E', '#16A34A'],
+  ['#F59E0B', '#D97706'],
+  ['#10B981', '#059669'],
+  ['#EAB308', '#CA8A04'],
+  ['#84CC16', '#65A30D'],
+  ['#15803D', '#166534'],
 ];
 
 function getInitials(name: string): string {

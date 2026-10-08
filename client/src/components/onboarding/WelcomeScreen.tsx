@@ -120,7 +120,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           left: '10%',
           width: '600px',
           height: '600px',
-          background: 'radial-gradient(circle, rgba(124, 92, 255, 0.15) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(34, 197, 94, 0.12) 0%, transparent 70%)',
           filter: 'blur(60px)',
           pointerEvents: 'none',
         }}
@@ -132,7 +132,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           right: '10%',
           width: '500px',
           height: '500px',
-          background: 'radial-gradient(circle, rgba(34, 211, 238, 0.10) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(245, 158, 11, 0.08) 0%, transparent 70%)',
           filter: 'blur(60px)',
           pointerEvents: 'none',
         }}
